@@ -1,0 +1,49 @@
+
+
+Creation base
+
+CREATE TABLE issue (title TEXT, owner INT, status INT);
+INSERT INTO "issue" VALUES('critical error should be simple error',1,1);
+CREATE TABLE "user" (name TEXT, passswd TEXT);
+INSERT INTO "user" VALUES('fred','xxx');
+INSERT INTO "user" VALUES('john','yyy');
+CREATE TABLE status (name TEXT);
+INSERT INTO "status" VALUES('open');
+INSERT INTO "status" VALUES('closed');
+CREATE TABLE link (table_name TEXT, column TEXT, table_ref TEXT, column_ref TEXT);
+INSERT INTO "link" VALUES('issue','owner','user','name');
+INSERT INTO "link" VALUES('issue','status','status','name');
+
+
+issue manager (ima)
+issue commander (ico)
+track keeper (trak, tke)
+suivi de faits techniques
+
+
+http://localhost:8000/projectName/<ressource>
+GET
+http://localhost:8000/projectName/issues/list
+http://localhost:8000/projectName/issues/list?can=1&q=searchtext&colspec=Stars+ID+Type+Status+Priority+Owner+Summary
+http://localhost:8000/projectName/issues/list?can=2&q=label%3Atyty%20status%3Astarted%20cc%3Ayyyyyyyyyyyuuuu
+http://localhost:8000/projectName/issues/142
+http://localhost:8000/projectName/issues/search // recherche avancée
+http://localhost:8000/projectName/issues/new // page d'ajout d'un ticket
+http://localhost:8000/projectName/users/Fred Hoerni // display
+http://localhost:8000/projectName/login
+http://localhost:8000/projectName/structure
+POST
+http://localhost:8000/projectName/issues/new // ajout d'un ticket
+http://localhost:8000/projectName/issues/142 // modification d'un ticket
+http://localhost:8000/projectName/issues/search // recherche avancée
+http://localhost:8000/projectName/users/Fred Hoerni  // update this user
+
+
+
+--
+erl -pa ~/erlang-sqlite3/ebin
+1> sqlite3:open(db, [{file, "tke/db"}]).
+{ok,<0.35.0>}
+2> sqlite3:open(db, [{file, "tke/db"}]).
+{error,{already_started,<0.35.0>}}
+
