@@ -44,10 +44,20 @@ no_resource(Project_name) ->
     { html, "project " ++ Project_name}.
 
 
+serve_resource(Project_name, "issues", []) ->
+    serve_resource(Project_name, "issues", ["list"]);
 serve_resource(Project_name, "issues", ["list"]) ->
     log:info("serve_resource(~p, issues, list)\n", [Project_name]),
     Issues = tke_base:list(Project_name),
-    {ehtml, { pre, [], io_lib:format("~p\n", [Issues]) } }
+    %Table = 
+    log:info("file:read_file(~p)", [Project_name ++ "/header.html"]),
+    {ok, Header} = file:read_file(Project_name ++ "/header.html"),
+    {ok, Footer} = file:read_file(Project_name ++ "/footer.html"),
+    [   {html, Header},
+        {ehtml, { pre, [], io_lib:format("~p\n", [Issues]) } },
+        {ehtml, {table, [{class, "t_issues"}], [ {html, ["toto\n"]}, {html, ["titi\n"]}] } },
+        tke_html:format_table_of_issues(Issues),
+        {html, Footer}]
     ;
 serve_resource(Project_name, Resource_name, Details) ->
     log:info("Project_name=~p, Resource=~p, Rest=~p\n",
