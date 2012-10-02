@@ -48,7 +48,7 @@ serve_resource(Project_name, "issues", []) ->
     serve_resource(Project_name, "issues", ["list"]);
 serve_resource(Project_name, "issues", ["list"]) ->
     log:info("serve_resource(~p, issues, list)\n", [Project_name]),
-    Issues = tke_base:list(Project_name),
+    Issues = tke_base:list(Project_name, [{columns, ["title", "status"]}]),
     %Table = 
     log:info("file:read_file(~p)", [Project_name ++ "/header.html"]),
     {ok, Header} = file:read_file(Project_name ++ "/header.html"),
