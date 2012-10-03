@@ -41,13 +41,13 @@ no_project_name() -> {status, 404}. % not found
 
 % action when no ressource is given
 no_resource(Project_name) ->
-    { html, "project " ++ Project_name}.
+    { html, "Missing resource: project " ++ Project_name}.
 
 
-serve_resource(Project_name, "issues", []) ->
-    serve_resource(Project_name, "issues", ["list"]);
-serve_resource(Project_name, "issues", ["list"]) ->
-    log:info("serve_resource(~p, issues, list)\n", [Project_name]),
+serve_resource(Project_name, "issues", [], Query) ->
+    serve_resource(Project_name, "issues", ["list"], Query);
+serve_resource(Project_name, "issues", ["list"], Query) ->
+    log:info("serve_resource(~p, issues, list, query=~p)\n", [Project_name, Query]),
     Issues = tke_base:list(Project_name, [{columns, ["title", "status"]}]),
     %Table = 
     log:info("file:read_file(~p)", [Project_name ++ "/header.html"]),
@@ -59,18 +59,19 @@ serve_resource(Project_name, "issues", ["list"]) ->
         tke_html:format_table_of_issues(Issues),
         {html, Footer}]
     ;
-serve_resource(Project_name, Resource_name, Details) ->
+serve_resource(Project_name, Resource_name, Details, Query) ->
     log:info("Project_name=~p, Resource=~p, Rest=~p\n",
         [ Project_name, Resource_name, Details ]),
     { html, "xxx" }.
 
 out(A) ->
     Url_tokens = string:tokens(A#arg.appmoddata, "/"),
+    Query = A#arg.querydata,
     case Url_tokens of
         [] -> no_project_name();
         [ Project_name ] -> no_resource(Project_name);
         [ Project_name, Resource | Details ] ->
-            serve_resource(Project_name, Resource, Details)
+            serve_resource(Project_name, Resource, Details, Query)
     end.
 
     %Query_string = A#arg.querydata,

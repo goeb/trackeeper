@@ -4,6 +4,13 @@
 %%% Handle interactions with the database
 %%%
 
+%%% The table 'link' plays the role of a foreign keys table.
+%%% No real foreign keys are used, because Sqlite3 does
+%%% not support adding a column with foreign key to an existing table.
+%%%
+%%%
+
+
 -module(tke_base).
 
 -compile(export_all).
@@ -11,6 +18,7 @@
 % return the list of issues of the given project
 list(Project_name) -> list(Project_name, []).
 
+% Return the list of issues
 % Project_name: list(char)
 %               directory of the project
 % Options: [ {columns, [list(char), ...] }, ... ]
@@ -24,14 +32,15 @@ list(Project_name, Options) ->
         {ok, _Pid} -> ok;
         {error, {already_started, _Pid}} -> ok
     end,
-    %sqlite3:sql_exec(db, "select rowid, * from issue;").
     sql_exec(db, Sql_req).
 
+% Build SQL request for the list of issues
 % Db must be an opened Sqlite3 database handler
 build_sql_list_request(Db, Columns) ->
     log:debug("build_sql_list_request/2(~p)", [[Db, Columns]]),
     build_sql_list_request(Db, Columns, [], ["issue"], []).
 
+% Build SQL request for the list of issues (with accumulator)
 % Db must be an opened Sqlite3 database handler
 build_sql_list_request(_Db, [], Sql_select, Sql_from, Sql_where) ->
     Sql = "SELECT " ++ string:join(Sql_select, ",") ++
