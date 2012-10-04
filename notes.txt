@@ -1,4 +1,9 @@
 
+erl -pa ~/erlang-sqlite3/ebin
+1> sqlite3:open(db, [{file, "tke/db"}]).
+{ok,<0.35.0>}
+2> sqlite3:sql_exec(db, "select * from issue;").
+
 
 Creation base
 

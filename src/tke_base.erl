@@ -26,19 +26,32 @@ list(Project_name, Options) ->
     Cols = proplists:get_value(columns, Options),
     log:debug("list(~p, ~p)", [Project_name, Options]),
     Fd = sql_open(db, Project_name),
-    Sql_req = build_sql_list_request(db, Cols),
+    case Cols of
+        all -> Cols2 = get_column_names(db, issue);
+        _else -> Cols2 = Cols
+    end,
+
+    Sql_req = build_sql_list_request(db, Cols2),
+
     log:debug("sql_open Fd=~p", [Fd]),
     case Fd of
         {ok, _Pid} -> ok;
         {error, {already_started, _Pid}} -> ok
     end,
-    sql_exec(db, Sql_req).
+    [{columns, _C}, {rows, Rows}] = sql_exec(db, Sql_req),
+    [{columns, Cols2}, {rows, Rows}]. % replace column names
+
+% handle 'all' columns
+get_column_names(Db, issue) ->
+    [{columns, Cols}, {rows, Rows}] = sql_exec(Db, "SELECT * FROM issue LIMIT 1;"),
+    ["rowid" | Cols].
 
 % Build SQL request for the list of issues
 % Db must be an opened Sqlite3 database handler
 build_sql_list_request(Db, Columns) ->
     log:debug("build_sql_list_request/2(~p)", [[Db, Columns]]),
-    build_sql_list_request(Db, Columns, [], ["issue"], []).
+    % reverse columns as they will be reversed again soon
+    build_sql_list_request(Db, lists:reverse(Columns), [], ["issue"], []).
 
 % Build SQL request for the list of issues (with accumulator)
 % Db must be an opened Sqlite3 database handler
