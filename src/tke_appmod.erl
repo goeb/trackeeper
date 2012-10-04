@@ -44,11 +44,16 @@ no_resource(Project_name) ->
     { html, "Missing resource: project " ++ Project_name}.
 
 
-serve_resource(Project_name, "issues", [], Query) ->
-    serve_resource(Project_name, "issues", ["list"], Query);
-serve_resource(Project_name, "issues", ["list"], Query) ->
-    log:info("serve_resource(~p, issues, list, query=~p)\n", [Project_name, Query]),
-    Issues = tke_base:list(Project_name, [{columns, ["title", "status"]}]),
+serve_resource(Project_name, "issues", [], Query_params) ->
+    serve_resource(Project_name, "issues", ["list"], Query_params);
+serve_resource(Project_name, "issues", ["list"], Query_params) ->
+    log:info("serve_resource(~p, issues, list, query=~p)\n", [Project_name, Query_params]),
+    Colspec = proplists:get_value(colspec, Query_params),
+    case Colspec of
+        undefined -> Colspec2 = all;
+        _else -> Colspec2 = string:tokens(Colspec, "+")
+    end,
+    Issues = tke_base:list(Project_name, [{columns, Colspec2}]),
     %Table = 
     log:info("file:read_file(~p)", [Project_name ++ "/header.html"]),
     {ok, Header} = file:read_file(Project_name ++ "/header.html"),
@@ -66,12 +71,15 @@ serve_resource(Project_name, Resource_name, Details, Query) ->
 
 out(A) ->
     Url_tokens = string:tokens(A#arg.appmoddata, "/"),
-    Query = A#arg.querydata,
+    Q = string:tokens(A#arg.querydata, "&"),
+    Q2 = [ string:tokens(X, "=") || X <- Q],
+    Q3 = [{list_to_atom(X), Y} || [X, Y] <- Q2], % make a proplist
+
     case Url_tokens of
         [] -> no_project_name();
         [ Project_name ] -> no_resource(Project_name);
         [ Project_name, Resource | Details ] ->
-            serve_resource(Project_name, Resource, Details, Query)
+            serve_resource(Project_name, Resource, Details, Q3)
     end.
 
     %Query_string = A#arg.querydata,

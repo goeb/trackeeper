@@ -44,8 +44,12 @@ build_sql_list_request(Db, Columns) ->
 % Db must be an opened Sqlite3 database handler
 build_sql_list_request(_Db, [], Sql_select, Sql_from, Sql_where) ->
     Sql = "SELECT " ++ string:join(Sql_select, ",") ++
-        " FROM " ++ string:join(Sql_from, ",") ++
-        " WHERE " ++ string:join(Sql_where, " AND ") ++ ";";
+        " FROM " ++ string:join(Sql_from, ","),
+    case Sql_where of
+        [] -> Sql ++ ";";
+        Sql_where when is_list(Sql_where) ->
+            Sql ++ " WHERE " ++ string:join(Sql_where, " AND ") ++ ";"
+    end;
     
 build_sql_list_request(Db, [Col | Others], Sql_select, Sql_from, Sql_where) ->
     log:debug("build_sql_list_request(~p)", [[Db, [Col | Others], Sql_select, Sql_where]]),
