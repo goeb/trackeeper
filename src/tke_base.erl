@@ -43,8 +43,9 @@ list(Project_name, Options) ->
 
 % handle 'all' columns
 get_column_names(Db, issue) ->
-    [{columns, Cols}, {rows, Rows}] = sql_exec(Db, "SELECT * FROM issue LIMIT 1;"),
-    ["rowid" | Cols].
+    Cols = sqlite3:table_info(Db, issue),
+    Column_names = [ atom_to_list(Col) || {Col, Type} <- Cols],
+    ["rowid" | Column_names].
 
 % Build SQL request for the list of issues
 % Db must be an opened Sqlite3 database handler
