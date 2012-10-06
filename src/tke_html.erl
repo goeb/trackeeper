@@ -8,40 +8,48 @@
 
 -compile(export_all).
 
-format_table_of_issues([ {columns, Columns}, {rows, Rows} ]) ->
-    Head_ehtml = format_table_row(Columns, Columns, th),
-    Rows_ehtml = format_table_rows(Columns, Rows),
+% Return the ehtml structure for the table of issues
+format_table_of_issues([ {columns, ["rowid" | Columns]}, {rows, Rows} ]) ->
+    log:debug("format_table_of_issues: Columns=~p, Rows=~p", [Columns, Rows]),
+    Head_ehtml = format_row(undefined, Columns, Columns, th),
+    Rows_ehtml = format_table_rows(Columns, Rows), % /!\ extra rowid is in Rows
     {ehtml, { table, [{class, "list"}], [Head_ehtml, Rows_ehtml]}}.
-
-% Type_of_cell = td | th
-format_table_row(Column_names, Columns, Type_of_cell) ->
-    C = format_table_row(Column_names, Columns, [], Type_of_cell),
-    C2 = lists:reverse(C),
-    {tr, [{class, "t_tr_head"}], C2}.
 
 to_string(X) when is_list(X) -> X;
 to_string(X) when is_binary(X) -> binary_to_list(X);
 to_string(X) when is_integer(X) -> io_lib:format("~B", [X]);
 to_string(null) -> "(null)".
 
+format_cell(undefined, Column_name, Column_value) -> Column_value;
+format_cell(Rowid, "title", Column_value) ->
+    {a, [{href, to_string(Rowid)}], to_string(Column_value)};
+format_cell(Rowid, Column_name, Column_value) -> to_string(Column_value).
+
+
+% Type_of_cell = td | th
+format_row(Rowid, Column_names, Columns, Type_of_cell) ->
+    C = format_row(Rowid, Column_names, Columns, [], Type_of_cell),
+    C2 = lists:reverse(C),
+    {tr, [{class, "t_tr_head"}], C2}.
+
 % ther should be as many column names as columns
-format_table_row([], [], Acc, _Type_of_cell) -> Acc;
-format_table_row([N | Other_names], [C | Other_columns], Acc, Type_of_cell) ->
-    case N of 
-        "title" -> Text = {a, [{href, "xxx"}], to_string(C)};
-        _else -> Text = to_string(C)
-    end,
+format_row(Rowid, [], [], Acc, _Type_of_cell) -> Acc;
+format_row(Rowid, [N | Other_names], [C | Other_columns], Acc, Type_of_cell) ->
+    Text = format_cell(Rowid, N, C),
     This_cell = { Type_of_cell, [{class, "t_td"}], Text},
     Acc2 = [This_cell | Acc],
-    format_table_row(Other_names, Other_columns, Acc2, Type_of_cell).
+    format_row(Rowid, Other_names, Other_columns, Acc2, Type_of_cell).
     
 
+% Each row contains first the rowid, which must not be displayed
+% Columns do not contain this first one.
+% rowid may also be present in the other columns, if requested for display
 format_table_rows(Columns, Rows) ->
     R = format_table_rows(Columns, Rows, []),
     lists:reverse(R). % put rows in correct order
 
 format_table_rows(Columns, [], Acc) -> Acc;
 format_table_rows(Column_names, [Current_row | Other], Acc) ->
-    Cols = tuple_to_list(Current_row),
-    Acc2 = [format_table_row(Column_names, Cols, td) | Acc],
+    [Rowid | Cols] = tuple_to_list(Current_row),
+    Acc2 = [format_row(Rowid, Column_names, Cols, td) | Acc],
     format_table_rows(Column_names, Other, Acc2).

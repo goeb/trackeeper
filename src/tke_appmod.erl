@@ -46,6 +46,7 @@ no_resource(Project_name) ->
 
 serve_resource(Project_name, "issues", [], Query_params) ->
     serve_resource(Project_name, "issues", ["list"], Query_params);
+
 serve_resource(Project_name, "issues", ["list"], Query_params) ->
     log:info("serve_resource(~p, issues, list, query=~p)\n", [Project_name, Query_params]),
     Colspec = proplists:get_value(colspec, Query_params),
@@ -71,10 +72,14 @@ serve_resource(Project_name, Resource_name, Details, Query) ->
 
 out(A) ->
     Url_tokens = string:tokens(A#arg.appmoddata, "/"),
-    Q = string:tokens(A#arg.querydata, "&"),
-    Q2 = [ string:tokens(X, "=") || X <- Q],
-    Q3 = [{list_to_atom(X), Y} || [X, Y] <- Q2], % make a proplist
-
+    log:debug("querydata=~p", [A#arg.querydata]),
+    case A#arg.querydata of
+        undefined -> Q3 = []; % no parameters
+        Qd -> 
+            Q = string:tokens(Qd, "&"),
+            Q2 = [ string:tokens(X, "=") || X <- Q],
+            Q3 = [{list_to_atom(X), Y} || [X, Y] <- Q2] % make a proplist
+    end,
     case Url_tokens of
         [] -> no_project_name();
         [ Project_name ] -> no_resource(Project_name);

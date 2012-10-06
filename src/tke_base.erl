@@ -31,7 +31,8 @@ list(Project_name, Options) ->
         _else -> Cols2 = Cols
     end,
 
-    Sql_req = build_sql_list_request(db, Cols2),
+    Cols3 = ["rowid" | Cols2], % add always rowid first (even if already present)
+    Sql_req = build_sql_list_request(db, Cols3),
 
     log:debug("sql_open Fd=~p", [Fd]),
     case Fd of
@@ -39,7 +40,7 @@ list(Project_name, Options) ->
         {error, {already_started, _Pid}} -> ok
     end,
     [{columns, _C}, {rows, Rows}] = sql_exec(db, Sql_req),
-    [{columns, Cols2}, {rows, Rows}]. % replace column names
+    [{columns, Cols3}, {rows, Rows}]. % replace column names
 
 % handle 'all' columns
 get_column_names(Db, issue) ->
