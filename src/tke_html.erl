@@ -9,6 +9,7 @@
 -compile(export_all).
 
 % Return the ehtml structure for the table of issues
+% The rowid is always the first item of rows, as we need it for hyper-links
 format_table_of_issues([ {columns, ["rowid" | Columns]}, {rows, Rows} ]) ->
     log:debug("format_table_of_issues: Columns=~p, Rows=~p", [Columns, Rows]),
     Head_ehtml = format_row(undefined, Columns, Columns, th),
@@ -18,11 +19,29 @@ format_table_of_issues([ {columns, ["rowid" | Columns]}, {rows, Rows} ]) ->
 to_string(X) when is_list(X) -> X;
 to_string(X) when is_binary(X) -> binary_to_list(X);
 to_string(X) when is_integer(X) -> io_lib:format("~B", [X]);
+to_string(X) when is_float(X) -> io_lib:format("~.2f", [X]);
 to_string(null) -> "(null)".
 
 format_cell(undefined, Column_name, Column_value) -> Column_value;
 format_cell(Rowid, "title", Column_value) ->
     {a, [{href, to_string(Rowid)}], to_string(Column_value)};
+format_cell(Rowid, "date", null) -> to_string(null);
+format_cell(Rowid, "date", Column_value) ->
+    % compute duration since latest activity
+    Now = calendar:universal_time(),
+    Seconds = calendar:datetime_to_gregorian_seconds(Now),
+    % convert Column_value to gregorian seconds
+    Val = Column_value + 719528*86400,
+    Dur = Seconds - Val,
+    case Dur of 
+        Dur when Dur < 60 -> T = to_string(Dur) ++ " s";
+        Dur when Dur < 3600 -> T = to_string(Dur/60) ++ " min";
+        Dur when Dur < 86400 -> T = to_string(Dur/3600) ++ " h";
+        Dur when Dur < 2592000 -> T = to_string(Dur/86400) ++ " days";
+        Dur when Dur < 31536000 -> T = to_string(Dur/2592000) ++ " months";
+        Dur -> T = to_string(Dur/31536000) ++ " years"
+    end,
+    T ++ " ago";
 format_cell(Rowid, Column_name, Column_value) -> to_string(Column_value).
 
 
