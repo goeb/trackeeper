@@ -44,11 +44,8 @@ no_resource(Project_name) ->
     { html, "Missing resource: project " ++ Project_name}.
 
 
-serve_resource(Project_name, "issues", [], Query_params) ->
-    serve_resource(Project_name, "issues", ["list"], Query_params);
-
-serve_resource(Project_name, "issues", ["list"], Query_params) ->
-    log:info("serve_resource(~p, issues, list, query=~p)\n", [Project_name, Query_params]),
+list_issues(Project_name, Query_params) ->
+    log:info("list_issues(~p, issues, list, query=~p)\n", [Project_name, Query_params]),
     Colspec = proplists:get_value(colspec, Query_params),
     case Colspec of
         undefined -> Colspec2 = all;
@@ -63,12 +60,15 @@ serve_resource(Project_name, "issues", ["list"], Query_params) ->
         {ehtml, { pre, [], io_lib:format("~p\n", [Issues]) } },
         {ehtml, {table, [{class, "t_issues"}], [ {html, ["toto\n"]}, {html, ["titi\n"]}] } },
         tke_html:format_table_of_issues(Issues),
-        {html, Footer}]
-    ;
-serve_resource(Project_name, Resource_name, Details, _Query) ->
-    log:info("Project_name=~p, Resource=~p, Rest=~p\n",
-        [ Project_name, Resource_name, Details ]),
-    { html, "xxx" }.
+        {html, Footer}].
+
+% show page for issue N
+% N = list(char)
+show_issue(Project, N, _Query) ->
+    log:debug("show_issue(~p, ~p, ~p)", [Project, N, _Query]),
+    Issue_data = tke_base:get_issue(Project, N),
+    tke_html:show_issue(Issue_data).
+
 
 % make a proplist from the query string
 % x=111&y=bbb
@@ -81,15 +81,22 @@ parse_query_string(Query_string) ->
     [{list_to_atom(X), Y} || [X, Y] <- Q2]. % make a proplist
 
 
-serve('GET', Url_tokens, Query_string) -> get(Url_tokens, Query_string);
-serve('POST', Url_tokens, Query_string) -> post(Url_tokens, Query_string).
+serve('GET', Url_tokens, Query_string) -> http_get(Url_tokens, Query_string);
+serve('POST', Url_tokens, Query_string) -> http_post(Url_tokens, Query_string).
 
-post(_Url_tokens, _Query_string) -> {status, 404}. % TODO
+http_post(_Url_tokens, _Query_string) -> {status, 404}. % TODO
 
-get([], _Query_string) -> {status, 404}; % not found % no project name
-get([Project_name], _Query_string) -> no_resource(Project_name);
-get([Project_name, Resource | Details], Query_string) ->
-    serve_resource(Project_name, Resource, Details, Query_string).
+% HTTP get
+% Project = name of project = list(char)
+% Resource = "issue" | TODO
+% Query = proplists of items of the HTTP query string
+http_get([], _Query) -> {status, 404}; % not found % no project name
+http_get([Project], _Query) -> no_resource(Project);
+http_get([Project, "issue"], Query) -> list_issues(Project, Query);
+http_get([Project, "issue" | "list"], Query) -> list_issues(Project, Query);
+http_get([Project, "issue", N], Query) -> show_issue(Project, N, Query);
+http_get(A, B) -> log:info("Invalid GET request ~p ? ~p", [A, B]),
+    {status, 404}.
 
 out(A) ->
     log:debug("out(~p)", [A]),

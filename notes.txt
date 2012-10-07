@@ -25,23 +25,31 @@ issue commander (ico)
 track keeper (trak, tke)
 suivi de faits techniques
 
+REST API
+----------
+http://localhost:8000/
 
-http://localhost:8000/projectName/<ressource>
 GET
-http://localhost:8000/projectName/issues/list
-http://localhost:8000/projectName/issues/list?can=1&q=searchtext&colspec=Stars+ID+Type+Status+Priority+Owner+Summary
-http://localhost:8000/projectName/issues/list?can=2&q=label%3Atyty%20status%3Astarted%20cc%3Ayyyyyyyyyyyuuuu
-http://localhost:8000/projectName/issues/142
-http://localhost:8000/projectName/issues/search // recherche avancée
-http://localhost:8000/projectName/issues/new // page d'ajout d'un ticket
-http://localhost:8000/projectName/users/Fred Hoerni // display
-http://localhost:8000/projectName/login
-http://localhost:8000/projectName/structure
+    /projectName/             : home page of project
+    /projectName/issue/[list] : list of issues
+        optional query string :
+        can=1&q=searchtext&colspec=Stars+ID+Type+Status+Priority+Owner+Summary
+        can=2&q=label%3Atyty%20status%3Astarted%20cc%3Ayyyyyyyyyyyuuuu
+        
+    /projectName/issue/N      : details of issue N
+    /projectName/issue/search : search form
+    /projectName/issue/new    : form for adding a new issue
+    /projectName/user/John Smith : details of user John Smith
+    /projectName/login        : login form
+    /projectName/structure    : form for modifying database structure
+        add/delete field
+        add/delete values in predefined lists
+
 POST
-http://localhost:8000/projectName/issues/new // ajout d'un ticket
-http://localhost:8000/projectName/issues/142 // modification d'un ticket
-http://localhost:8000/projectName/issues/search // recherche avancée
-http://localhost:8000/projectName/users/Fred Hoerni  // update this user
+    /projectName/issue/new    : add new issue
+    /projectName/issue/N      : modify issue N
+    /projectName/user/John Smith : modify user John Smith's details
+    /projectName/structure    : modify database structure
 
 
 

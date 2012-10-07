@@ -98,3 +98,12 @@ sql_open(Db, Project_name) ->
     Path = Project_name ++ "/db",
     log:debug("SQL-open: " ++ Path),
     sqlite3:open(Db, [{file, Path}]).
+
+get_issue(Project, N) ->
+    Sql = "SELECT * FROM issue WHERE issue.rowid = " ++ N,
+    sql_open(db, Project),
+    Issue = sql_exec(db, Sql),
+    % get messages
+    Sql_m = "SELECT * FROM message WHERE message.issue = " ++ N,
+    Messages = sql_exec(db, Sql_m),
+    [Issue, Messages].

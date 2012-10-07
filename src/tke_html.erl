@@ -72,3 +72,8 @@ format_table_rows(Column_names, [Current_row | Other], Acc) ->
     [Rowid | Cols] = tuple_to_list(Current_row),
     Acc2 = [format_row(Rowid, Column_names, Cols, td) | Acc],
     format_table_rows(Column_names, Other, Acc2).
+
+resource_not_found() ->
+    [{html, "404 - Resource not found"}, {status, 404}].
+
+show_issue(Issue_data) -> {html, io_lib:format("Issue_data=~p", [Issue_data])}.
