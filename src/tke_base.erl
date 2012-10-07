@@ -45,7 +45,7 @@ list(Project_name, Options) ->
 % handle 'all' columns
 get_column_names(Db, issue) ->
     Cols = sqlite3:table_info(Db, issue),
-    Column_names = [ atom_to_list(Col) || {Col, Type} <- Cols],
+    Column_names = [ atom_to_list(Col) || {Col, _Type} <- Cols],
     ["rowid" | Column_names].
 
 % Build SQL request for the list of issues
@@ -71,7 +71,7 @@ build_sql_list_request(Db, [Col | Others], Sql_select, Sql_from, Sql_where) ->
     % is Col a link to another table ?
     Sql = "select * from link where column='" ++ Col ++ "';",
     Sql_result = sql_exec(Db, Sql),
-    [{columns, Cols}, {rows, Rows}] = Sql_result,
+    [{columns, _Cols}, {rows, Rows}] = Sql_result,
     case Rows of
         [] -> % no link. use raw column of table 'issue'
             Sql_select2 = ["issue." ++ Col | Sql_select],
@@ -79,7 +79,7 @@ build_sql_list_request(Db, [Col | Others], Sql_select, Sql_from, Sql_where) ->
             Sql_from2 = Sql_from;
         [Row] -> % one single row
             Row_txt = [ binary_to_list(X) || X <- tuple_to_list(Row) ],
-            [Table_name, Col, Table_ref, Col_ref] = Row_txt,
+            [_Table_name, Col, Table_ref, Col_ref] = Row_txt,
             % add a where clause and a joint
             Sql_select2 = [Table_ref ++ "." ++ Col_ref | Sql_select],
             Sql_where2 = ["issue." ++ Col ++ "=" ++ Table_ref ++ ".rowid" | Sql_where],

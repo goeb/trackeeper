@@ -65,31 +65,39 @@ serve_resource(Project_name, "issues", ["list"], Query_params) ->
         tke_html:format_table_of_issues(Issues),
         {html, Footer}]
     ;
-serve_resource(Project_name, Resource_name, Details, Query) ->
+serve_resource(Project_name, Resource_name, Details, _Query) ->
     log:info("Project_name=~p, Resource=~p, Rest=~p\n",
         [ Project_name, Resource_name, Details ]),
     { html, "xxx" }.
 
-out(A) ->
-    Url_tokens = string:tokens(A#arg.appmoddata, "/"),
-    log:debug("querydata=~p", [A#arg.querydata]),
-    case A#arg.querydata of
-        undefined -> Q3 = []; % no parameters
-        Qd -> 
-            Q = string:tokens(Qd, "&"),
-            Q2 = [ string:tokens(X, "=") || X <- Q],
-            Q3 = [{list_to_atom(X), Y} || [X, Y] <- Q2] % make a proplist
-    end,
-    case Url_tokens of
-        [] -> no_project_name();
-        [ Project_name ] -> no_resource(Project_name);
-        [ Project_name, Resource | Details ] ->
-            serve_resource(Project_name, Resource, Details, Q3)
-    end.
+% make a proplist from the query string
+% x=111&y=bbb
+% -> [{x, "111"}, {y, "bbb"}]
+parse_query_string(undefined) -> [];
+parse_query_string(Query_string) ->
+    log:debug("Query_string=~p", [Query_string]),
+    Q = string:tokens(Query_string, "&"),
+    Q2 = [ string:tokens(X, "=") || X <- Q],
+    [{list_to_atom(X), Y} || [X, Y] <- Q2]. % make a proplist
 
-    %Query_string = A#arg.querydata,
-    %log:info("Query_string=~p\n", [ Query_string ]),
-    %log:info("req=~p\n", [ A#arg.req ]),
+
+serve('GET', Url_tokens, Query_string) -> get(Url_tokens, Query_string);
+serve('POST', Url_tokens, Query_string) -> post(Url_tokens, Query_string).
+
+post(_Url_tokens, _Query_string) -> {status, 404}. % TODO
+
+get([], _Query_string) -> {status, 404}; % not found % no project name
+get([Project_name], _Query_string) -> no_resource(Project_name);
+get([Project_name, Resource | Details], Query_string) ->
+    serve_resource(Project_name, Resource, Details, Query_string).
+
+out(A) ->
+    log:debug("out(~p)", [A]),
+    Method = A#arg.req#http_request.method,
+    Q = parse_query_string(A#arg.querydata),
+    % TODO parse cookie / get session
+    Url_tokens = string:tokens(A#arg.appmoddata, "/"),
+    serve(Method, Url_tokens, Q).
 
     %% old code for managing session
 out_old(A) ->

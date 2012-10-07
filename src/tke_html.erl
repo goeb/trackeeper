@@ -22,11 +22,11 @@ to_string(X) when is_integer(X) -> io_lib:format("~B", [X]);
 to_string(X) when is_float(X) -> io_lib:format("~.2f", [X]);
 to_string(null) -> "(null)".
 
-format_cell(undefined, Column_name, Column_value) -> Column_value;
+format_cell(undefined, _Column_name, Column_value) -> Column_value;
 format_cell(Rowid, "title", Column_value) ->
     {a, [{href, to_string(Rowid)}], to_string(Column_value)};
-format_cell(Rowid, "date", null) -> to_string(null);
-format_cell(Rowid, "date", Column_value) ->
+format_cell(_Rowid, "date", null) -> to_string(null);
+format_cell(_Rowid, "date", Column_value) ->
     % compute duration since latest activity
     Now = calendar:universal_time(),
     Seconds = calendar:datetime_to_gregorian_seconds(Now),
@@ -42,7 +42,7 @@ format_cell(Rowid, "date", Column_value) ->
         Dur -> T = to_string(Dur/31536000) ++ " years"
     end,
     T ++ " ago";
-format_cell(Rowid, Column_name, Column_value) -> to_string(Column_value).
+format_cell(_Rowid, _Column_name, Column_value) -> to_string(Column_value).
 
 
 % Type_of_cell = td | th
@@ -52,7 +52,7 @@ format_row(Rowid, Column_names, Columns, Type_of_cell) ->
     {tr, [{class, "t_tr_head"}], C2}.
 
 % ther should be as many column names as columns
-format_row(Rowid, [], [], Acc, _Type_of_cell) -> Acc;
+format_row(_Rowid, [], [], Acc, _Type_of_cell) -> Acc;
 format_row(Rowid, [N | Other_names], [C | Other_columns], Acc, Type_of_cell) ->
     Text = format_cell(Rowid, N, C),
     This_cell = { Type_of_cell, [{class, "t_td"}], Text},
@@ -67,7 +67,7 @@ format_table_rows(Columns, Rows) ->
     R = format_table_rows(Columns, Rows, []),
     lists:reverse(R). % put rows in correct order
 
-format_table_rows(Columns, [], Acc) -> Acc;
+format_table_rows(_Columns, [], Acc) -> Acc;
 format_table_rows(Column_names, [Current_row | Other], Acc) ->
     [Rowid | Cols] = tuple_to_list(Current_row),
     Acc2 = [format_row(Rowid, Column_names, Cols, td) | Acc],
