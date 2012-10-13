@@ -40,9 +40,7 @@ new_session() ->
 no_project_name() -> {status, 404}. % not found
 
 % action when no ressource is given
-no_resource(Project_name) ->
-    { html, "Missing resource: project " ++ Project_name}.
-
+no_resource(_Project_name) -> tke_html:resource_not_found().
 
 list_issues(Project_name, Query_params) ->
     log:info("list_issues(~p, issues, list, query=~p)\n", [Project_name, Query_params]),
@@ -53,21 +51,19 @@ list_issues(Project_name, Query_params) ->
     end,
     Issues = tke_base:list(Project_name, [{columns, Colspec2}]),
     %Table = 
-    log:info("file:read_file(~p)", [Project_name ++ "/header.html"]),
-    {ok, Header} = file:read_file(Project_name ++ "/header.html"),
-    {ok, Footer} = file:read_file(Project_name ++ "/footer.html"),
-    [   {html, Header},
-        {ehtml, { pre, [], io_lib:format("~p\n", [Issues]) } },
-        {ehtml, {table, [{class, "t_issues"}], [ {html, ["toto\n"]}, {html, ["titi\n"]}] } },
-        tke_html:format_table_of_issues(Issues),
-        {html, Footer}].
+    [tke_html:header(Project_name),
+     tke_html:format_table_of_issues(Issues),
+     tke_html:footer(Project_name)
+    ].
 
 % show page for issue N
 % N = list(char)
 show_issue(Project, N, _Query) ->
     log:debug("show_issue(~p, ~p, ~p)", [Project, N, _Query]),
     Issue_data = tke_base:get_issue(Project, N),
-    tke_html:show_issue(Issue_data).
+    Html = tke_html:show_issue(Project, Issue_data),
+    log:debug("show_issue: Html=~p", [Html]),
+    Html.
 
 
 % make a proplist from the query string
@@ -93,7 +89,7 @@ http_post(_Url_tokens, _Query_string) -> {status, 404}. % TODO
 http_get([], _Query) -> {status, 404}; % not found % no project name
 http_get([Project], _Query) -> no_resource(Project);
 http_get([Project, "issue"], Query) -> list_issues(Project, Query);
-http_get([Project, "issue" | "list"], Query) -> list_issues(Project, Query);
+http_get([Project, "issue", "list"], Query) -> list_issues(Project, Query);
 http_get([Project, "issue", N], Query) -> show_issue(Project, N, Query);
 http_get(A, B) -> log:info("Invalid GET request ~p ? ~p", [A, B]),
     {status, 404}.

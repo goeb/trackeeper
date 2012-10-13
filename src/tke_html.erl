@@ -76,4 +76,35 @@ format_table_rows(Column_names, [Current_row | Other], Acc) ->
 resource_not_found() ->
     [{html, "404 - Resource not found"}, {status, 404}].
 
-show_issue(Issue_data) -> {html, io_lib:format("Issue_data=~p", [Issue_data])}.
+messages(_M) -> {html, "messages xxxxxxx"}.
+details(Issue) -> 
+    Field_names = proplists:get_value(columns, Issue),
+    [Field_values] = proplists:get_value(rows, Issue),
+    % field names is a list whereas field values is a tuple
+    Field_values2 = tuple_to_list(Field_values),
+    Ehtml = format_details(Field_names, Field_values2, []),
+    Ehtml.
+    %{html, io_lib:format("Issue_data=~p", [Issue])}.
+
+format_details([], [], Acc) -> Acc;
+format_details([Name | Other_fields], [Value | Other_values], Acc) ->
+    Ehtml = { ehtml, [{span, [], Name ++ ": " ++ to_string(Value)}, {br}]},
+    format_details(Other_fields, Other_values, [Ehtml | Acc]).
+
+
+% return EHTML for diaplying issue
+show_issue(Project, [Issue, Messages]) ->
+    [header(Project),
+     details(Issue),
+     messages(Messages),
+     footer(Project)
+    ].
+
+
+header(Project) ->
+    {ok, Header} = file:read_file(Project ++ "/header.html"),
+    {html, Header}.
+
+footer(Project) ->
+    {ok, Footer} = file:read_file(Project ++ "/footer.html"),
+    {html, Footer}.
