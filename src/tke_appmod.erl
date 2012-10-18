@@ -61,7 +61,13 @@ list_issues(Project_name, Query_params) ->
 show_issue(Project, N, _Query) ->
     log:debug("show_issue(~p, ~p, ~p)", [Project, N, _Query]),
     Issue_data = tke_base:get_issue(Project, N),
-    Html = tke_html:show_issue(Project, Issue_data),
+    % TODO
+    Issue = [{title, "critical error should be simple error"},
+             {status, "open"},
+             {owner,"John Smith"},
+             {date, 123456}
+            ],
+    Html = tke_html:show_issue(Project, Issue, xxx),
     log:debug("show_issue: Html=~p", [Html]),
     Html.
 

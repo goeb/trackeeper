@@ -77,28 +77,21 @@ resource_not_found() ->
     [{html, "404 - Resource not found"}, {status, 404}].
 
 messages(_M) -> {html, "messages xxxxxxx"}.
-details(Issue) -> 
-    Field_names = proplists:get_value(columns, Issue),
-    [Field_values] = proplists:get_value(rows, Issue),
-    % field names is a list whereas field values is a tuple
-    Field_values2 = tuple_to_list(Field_values),
-    Ehtml = format_details(Field_names, Field_values2, []),
-    Ehtml.
-    %{html, io_lib:format("Issue_data=~p", [Issue])}.
 
-format_details([], [], Html_rows_acc) ->
+details([], Html_rows_acc) ->
     {ehtml, {table, [{class, "form"}], Html_rows_acc}};
-format_details([Name | Other_fields], [Value | Other_values], Acc) ->
-    Ehtml = { tr, [], [{th, [], Name}, {td, [], to_string(Value)}]},
-    format_details(Other_fields, Other_values, [Ehtml | Acc]).
+details([{Name, Value} | Others], Acc) ->
+    Ehtml = { tr, [], [{th, [], atom_to_list(Name)}, {td, [], to_string(Value)}]},
+    details(Others, [Ehtml | Acc]).
 
 
 % return EHTML for diaplying issue
-show_issue(Project, [Issue, Messages]) ->
-    [header(Project),
-     details(Issue),
-     messages(Messages),
-     footer(Project)
+show_issue(Project, Issue, Messages) ->
+    log:debug("show_issue..."),
+    [   header(Project),
+        details(Issue, []),
+        messages(Messages),
+        footer(Project)
     ].
 
 
