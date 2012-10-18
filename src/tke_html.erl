@@ -11,7 +11,7 @@
 % Return the ehtml structure for the table of issues
 % The rowid is always the first item of rows, as we need it for hyper-links
 format_table_of_issues([ {columns, ["rowid" | Columns]}, {rows, Rows} ]) ->
-    log:debug("format_table_of_issues: Columns=~p, Rows=~p", [Columns, Rows]),
+    %log:debug("format_table_of_issues: Columns=~p, Rows=~p", [Columns, Rows]),
     Head_ehtml = format_row(undefined, Columns, Columns, th),
     Rows_ehtml = format_table_rows(Columns, Rows), % /!\ extra rowid is in Rows
     {ehtml, { table, [{class, "list"}], [Head_ehtml, Rows_ehtml]}}.
@@ -86,9 +86,10 @@ details(Issue) ->
     Ehtml.
     %{html, io_lib:format("Issue_data=~p", [Issue])}.
 
-format_details([], [], Acc) -> Acc;
+format_details([], [], Html_rows_acc) ->
+    {ehtml, {table, [{class, "form"}], Html_rows_acc}};
 format_details([Name | Other_fields], [Value | Other_values], Acc) ->
-    Ehtml = { ehtml, [{span, [], Name ++ ": " ++ to_string(Value)}, {br}]},
+    Ehtml = { tr, [], [{th, [], Name}, {td, [], to_string(Value)}]},
     format_details(Other_fields, Other_values, [Ehtml | Acc]).
 
 

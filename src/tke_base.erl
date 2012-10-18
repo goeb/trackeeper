@@ -51,7 +51,7 @@ get_column_names(Db, issue) ->
 % Build SQL request for the list of issues
 % Db must be an opened Sqlite3 database handler
 build_sql_list_request(Db, Columns) ->
-    log:debug("build_sql_list_request/2(~p)", [[Db, Columns]]),
+    %log:debug("build_sql_list_request/2(~p)", [[Db, Columns]]),
     % reverse columns as they will be reversed again soon
     build_sql_list_request(Db, lists:reverse(Columns), [], ["issue"], []).
 
@@ -67,7 +67,7 @@ build_sql_list_request(_Db, [], Sql_select, Sql_from, Sql_where) ->
     end;
     
 build_sql_list_request(Db, [Col | Others], Sql_select, Sql_from, Sql_where) ->
-    log:debug("build_sql_list_request(~p)", [[Db, [Col | Others], Sql_select, Sql_where]]),
+    %log:debug("build_sql_list_request(~p)", [[Db, [Col | Others], Sql_select, Sql_where]]),
     % is Col a link to another table ?
     Sql = "select * from link where column='" ++ Col ++ "';",
     Sql_result = sql_exec(Db, Sql),
@@ -91,7 +91,7 @@ build_sql_list_request(Db, [Col | Others], Sql_select, Sql_from, Sql_where) ->
 sql_exec(Db, Sql_req) ->
     log:debug("SQL: " ++ Sql_req),
     R = sqlite3:sql_exec(Db, Sql_req),
-    log:debug("SQL-result: ~p", [R]),
+    %log:debug("SQL-result: ~p", [R]),
     R.
 
 sql_open(Db, Project_name) ->

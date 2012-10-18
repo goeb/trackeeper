@@ -95,7 +95,7 @@ http_get(A, B) -> log:info("Invalid GET request ~p ? ~p", [A, B]),
     {status, 404}.
 
 out(A) ->
-    log:debug("out(~p)", [A]),
+    %log:debug("out(~p)", [A]),
     Method = A#arg.req#http_request.method,
     Q = parse_query_string(A#arg.querydata),
     % TODO parse cookie / get session
