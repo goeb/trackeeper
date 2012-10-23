@@ -51,3 +51,28 @@ handle_call({search, Search}, _From, Chs) ->
 
 handle_cast(_X, Y) ->
     {noreply, Y}.
+
+%% File access functions
+load(Project) ->
+    Issue_table = ets:new(issue,[private]),
+    Message_table = ets:new(message,[private]),
+    load_issues(Project, Issue_table),
+    load_messages(Project, Message_table),
+    {Issue_table, Message_table}.
+
+load_issues(Project, Issue_table) ->
+    {ok, Files} = file:list_dir(Project),
+    Paths = [Project ++ "/" ++ File || File <- Files],
+    load_issues_from_files(Files, Issue_table).
+
+load_issues_from_files([], _Issue_table) -> ok;
+load_issues_from_files([File | Others], Issue_table) ->
+    {ok, Binary} = file:read_file(),
+    S = binary_to_list(Binary),
+    {ok, Tokens} = erl_scan:string(S),
+    {ok, Term} = erl_parse:parse_term(Tokens),
+    ets:insert(Issue_table, Term),
+    load_issues_from_files(Others, Issue_table).
+
+
+load_messages(Project, Message_table) -> todo.
