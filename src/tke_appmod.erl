@@ -6,6 +6,7 @@
 %% init server
 start() ->
     io:format("~p starting...\n", [ ?MODULE ]),
+    tke_db:start(),
     spawn(?MODULE, loop, []),
     ok.
 
