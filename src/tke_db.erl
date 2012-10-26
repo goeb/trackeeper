@@ -58,13 +58,19 @@ handle_call({get, issue, N}, _From, Ctx) ->
     {reply, I, Ctx};
 handle_call({get, message, N}, _From, Ctx) ->
     {reply, {message, N}, Ctx};
+%% create new issue
 handle_call({update, I = #issue{id=new}}, _From, Ctx) ->
     New_id = get_new_id(Ctx#project.issues),
     I2 = I#issue{id=New_id},
-    ets:insert(Ctx#project.issues, I2),
+    handle_call({update, I2}, _From, Ctx);
+
+%% update new issue with id, or existing issue (with id also)
+handle_call({update, I = #issue{}}, _From, Ctx) ->
+    ets:insert(Ctx#project.issues, I),
     log:debug("going to sync..."),
-    sync(Ctx#project.name, I2),
-    {reply, {ok, I2}, Ctx};
+    sync(Ctx#project.name, I),
+    {reply, {ok, I}, Ctx};
+
 handle_call({search, _Search}, _From, Ctx) ->
     {reply, [], Ctx}.
 
@@ -105,8 +111,9 @@ load_messages(_Project, _Message_table) -> todo.
 sync(Project, I = #issue{}) -> 
     log:debug("syncing..."),
     Id = integer_to_list(I#issue.id),
-    Filename = Project ++ "/" ++ Id ++ "/issue",
-        %% TODO create dir if needed
+    Dirname = Project ++ "/" ++ Id,
+    file:make_dir(Dirname),
+    Filename = Dirname ++ "/issue",
     Str = io_lib:format("~p.", [I]),
     Bytes = list_to_binary(Str),
     X=file:write_file(Filename, Bytes),
