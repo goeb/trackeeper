@@ -15,8 +15,8 @@
 
 -record(project, {name, issues, messages}).
 -record(issue, {id, title, status, owner, summary, ctime, tags}).
--record(message, {id, author, ctime, contents}).
-%% contents is either: {file, Filename} | {text, Text} | {update, Text}
+-record(message, {id, issue, author, ctime, contents}).
+%% contents is either: {file, Filename} | {text, Text} | {change, [{Field, Old, New]}
 
 %% API -------------------
 
@@ -57,9 +57,13 @@ handle_call({get, issue, N}, _From, Ctx) ->
     end,
     {reply, I, Ctx};
 handle_call({get, message, N}, _From, Ctx) ->
-    {reply, {message, N}, Ctx};
+    case ets:lookup(Ctx#project.messages, N) of
+        [M] -> ok;
+        [] -> M = none
+    end,
+    {reply, M, Ctx};
 %% create new issue
-handle_call({update, I = #issue{id=new}}, _From, Ctx) ->
+handle_call({update, I = #issue{id=undefined}}, _From, Ctx) ->
     New_id = get_new_id(Ctx#project.issues),
     I2 = I#issue{id=New_id},
     handle_call({update, I2}, _From, Ctx);
@@ -70,6 +74,13 @@ handle_call({update, I = #issue{}}, _From, Ctx) ->
     log:debug("going to sync..."),
     sync(Ctx#project.name, I),
     {reply, {ok, I}, Ctx};
+%% create new message
+handle_call({update, M = #message{}}, _From, Ctx) ->
+    New_id = get_new_id(Ctx#project.messages),
+    M2 = M#message{id=New_id},
+    ets:insert(Ctx#project.messages, M2),
+    sync(Ctx#project.name, M2),
+    {reply, {ok, M2}, Ctx};
 
 handle_call({search, _Search}, _From, Ctx) ->
     {reply, [], Ctx}.
@@ -114,25 +125,37 @@ sync(Project, I = #issue{}) ->
     Dirname = Project ++ "/" ++ Id,
     file:make_dir(Dirname),
     Filename = Dirname ++ "/issue",
-    Str = io_lib:format("~p.", [I]),
+    sync_file(Filename, I);
+
+sync(Project, M = #message{}) ->
+    log:debug("syncing message: ~p", [M]),
+    Issue = integer_to_list(M#message.issue),
+    Id = integer_to_list(M#message.id),
+    Dirname = Project ++ "/" ++ Issue,
+    Filename = Dirname ++ "/" ++ Id ++ ".msg",
+    sync_file(Filename, M).
+
+sync_file(Filename, Data) ->
+    Str = io_lib:format("~p.", [Data]),
     Bytes = list_to_binary(Str),
     X=file:write_file(Filename, Bytes),
     log:debug("syncing...~p, Filename=~p", [X, Filename]),
-    X;
-sync(Project, I = #message{}) -> ok.
+    X.
+
+
 
 code_change(_, _, _) -> ok.
 handle_info(_, _) -> ok.
 terminate(shutdown, _State) -> ok.
 
-%% Get new id functions
-get_new_id(Issues) -> get_max_id(Issues, ets:first(Issues), 0) + 1.
+%% Get new id functions for issue or message
+get_new_id(Table) -> get_max_id(Table, ets:first(Table), 0) + 1.
 
-get_max_id(Issues, '$end_of_table', N) -> N;
-get_max_id(Issues, Key, N) ->
+get_max_id(_Table, '$end_of_table', N) -> N;
+get_max_id(Table, Key, N) ->
     case Key > N of
         true -> Max = Key;
         _Else -> Max = N
     end,
-    get_max_id(Issues, ets:next(Issues, Key), Max).
+    get_max_id(Table, ets:next(Table, Key), Max).
 
