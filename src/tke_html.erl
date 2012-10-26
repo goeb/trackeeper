@@ -79,7 +79,7 @@ resource_not_found() ->
 messages(_M) -> {html, "messages xxxxxxx"}.
 
 details([], Html_rows_acc) ->
-    {ehtml, {table, [{class, "form"}], Html_rows_acc}};
+    {ehtml, {table, [{class, "form"}], lists:reverse(Html_rows_acc)}};
 details([{Name, Value} | Others], Acc) ->
     Ehtml = { tr, [], [{th, [], atom_to_list(Name)}, {td, [], to_string(Value)}]},
     details(Others, [Ehtml | Acc]).

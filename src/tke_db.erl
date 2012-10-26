@@ -7,8 +7,8 @@
 %%%
 %%% Example:
 %%% tke_db:get(tke, message, 4).
-%%%     #message{id = 4,issue = 1,author = undefined,
-%%%              ctime = undefined,contents = undefined}
+%%%     [{id, 4}, {issue, 1}, {author, undefined},
+%%%              {ctime, undefined}, {contents, undefined}]
 %%% tke_db:get(tke, issue, 2).
 %%%     ...
 %%% tke_db:update(tke, M#message{issue=1}).
@@ -40,20 +40,17 @@ start() ->
 stop() -> gen_server:cast(tke, stop).
     
 %% Project = atom() | list()
-get(Project, Kind, N) when is_list(Project) ->
-    get(list_to_atom(Project), Kind, N);
-get(Project, issue, N) when is_atom(Project) ->
-    gen_server:call(Project, {get, issue, N});
-get(Project, message, N) when is_atom(Project) ->
-    gen_server:call(Project, {get, message, N}).
+%% Table = issue | message
+get(Project, Table, N) when is_list(Project) ->
+    gen_server:call(list_to_atom(Project), {get, Table, N}).
 
 % if new issue, then create and return id.
 % if existing issue, then update
 update(Project, Item) ->
     gen_server:call(Project, {update, Item}).
 
-search(Project, Search) ->
-    gen_server:call(Project, {search, Search}).
+search(Project, Table, Search) ->
+    gen_server:call(Project, {search, Table, Search}).
 
 %% Internals -------------------
 
@@ -96,8 +93,12 @@ handle_call({update, M = #message{}}, _From, Ctx) ->
     sync(Ctx#project.name, M2),
     {reply, {ok, M2}, Ctx};
 
-handle_call({search, _Search}, _From, Ctx) ->
+handle_call({search, issue, I}, _From, Ctx) ->
+    {reply, [], Ctx};
+handle_call({search, message, M}, _From, Ctx) ->
+    % TODO
     {reply, [], Ctx}.
+
 
 handle_cast(stop, Ctx) -> {stop, normal, Ctx};
 handle_cast(_X, Y) -> {noreply, Y}.
