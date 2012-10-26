@@ -3,6 +3,19 @@
 %%% ----------------------------------
 %%% Manage TKE database.
 %%%
+%%%
+%%%
+%%% Example:
+%%% tke_db:get(tke, message, 4).
+%%%     #message{id = 4,issue = 1,author = undefined,
+%%%              ctime = undefined,contents = undefined}
+%%% tke_db:get(tke, issue, 2).
+%%%     ...
+%%% tke_db:update(tke, M#message{issue=1}).
+%%%     {ok,#message{id = 4,issue = 1,author = undefined,
+%%%          ctime = undefined,contents = undefined}}
+
+
 
 -module(tke_db).
 -behaviour(gen_server).
@@ -13,9 +26,8 @@
 
 -export([get/3, update/2]).
 
+-include("tke_db.hrl").
 -record(project, {name, issues, messages}).
--record(issue, {id, title, status, owner, summary, ctime, tags}).
--record(message, {id, issue, author, ctime, contents}).
 %% contents is either: {file, Filename} | {text, Text} | {change, [{Field, Old, New]}
 
 %% API -------------------
@@ -27,10 +39,12 @@ start() ->
 
 stop() -> gen_server:cast(tke, stop).
     
-%% Project = atom()
-get(Project, issue, N) ->
+%% Project = atom() | list()
+get(Project, Kind, N) when is_list(Project) ->
+    get(list_to_atom(Project), Kind, N);
+get(Project, issue, N) when is_atom(Project) ->
     gen_server:call(Project, {get, issue, N});
-get(Project, message, N) ->
+get(Project, message, N) when is_atom(Project) ->
     gen_server:call(Project, {get, message, N}).
 
 % if new issue, then create and return id.
@@ -52,14 +66,14 @@ init(Project) ->
 
 handle_call({get, issue, N}, _From, Ctx) ->
     case ets:lookup(Ctx#project.issues, N) of
-        [I] -> ok;
-        [] -> I = none
+        [I0] -> I = convert_to_proplist(I0);
+        [] -> I = undefined
     end,
     {reply, I, Ctx};
 handle_call({get, message, N}, _From, Ctx) ->
     case ets:lookup(Ctx#project.messages, N) of
-        [M] -> ok;
-        [] -> M = none
+        [M0] -> M = convert_to_proplist(M0);
+        [] -> M = undefined
     end,
     {reply, M, Ctx};
 %% create new issue
@@ -158,4 +172,10 @@ get_max_id(Table, Key, N) ->
         _Else -> Max = N
     end,
     get_max_id(Table, ets:next(Table, Key), Max).
+
+convert_to_proplist(I = #issue{}) ->
+    lists:zip(record_info(fields, issue), tl(tuple_to_list(I))).
+
+
+
 
