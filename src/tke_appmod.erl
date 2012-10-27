@@ -40,7 +40,7 @@ new_session() ->
     .
 
 % action when no project name is given in the request
-no_project_name() -> {status, 404}. % not found
+no_project_name() -> tke_html:resource_not_found(). % not found
 
 % action when no ressource is given
 no_resource(_Project_name) -> tke_html:resource_not_found().
@@ -96,19 +96,19 @@ parse_query_string(Query_string) ->
 serve('GET', Url_tokens, Query_string) -> http_get(Url_tokens, Query_string);
 serve('POST', Url_tokens, Query_string) -> http_post(Url_tokens, Query_string).
 
-http_post(_Url_tokens, _Query_string) -> {status, 404}. % TODO
+http_post(_Url_tokens, _Query_string) -> tke_html:resource_not_found().
 
 % HTTP get
 % Project = name of project = list(char)
 % Resource = "issue" | TODO
 % Query = proplists of items of the HTTP query string
-http_get([], _Query) -> {status, 404}; % not found % no project name
+http_get([], _Query) -> tke_html:resource_not_found();
 http_get([Project], _Query) -> no_resource(Project);
 http_get([Project, "issue"], Query) -> list_issues(Project, Query);
 http_get([Project, "issue", "list"], Query) -> list_issues(Project, Query);
 http_get([Project, "issue", N], Query) -> show_issue(Project, N, Query);
 http_get(A, B) -> log:info("Invalid GET request ~p ? ~p", [A, B]),
-    {status, 404}.
+    tke_html:resource_not_found().
 
 out(A) ->
     %log:debug("out(~p)", [A]),

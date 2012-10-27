@@ -179,7 +179,7 @@ sync(Project, M = #message{}) ->
     Issue = integer_to_list(M#message.issue),
     Id = integer_to_list(M#message.id),
     Dirname = Project ++ "/" ++ Issue,
-    Filename = Dirname ++ "/" ++ Id ++ ".msg",
+    Filename = Dirname ++ "/msg." ++ Id,
     sync_file(Filename, M).
 
 sync_file(Filename, Data) ->

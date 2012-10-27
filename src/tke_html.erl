@@ -93,14 +93,13 @@ messages([M | Messages], Acc) ->
         ]},
     Contents = {tr, [], {td, [{colspan, "4"}, {class, "content"}],
             {pre, [], Text}}},
-    log:debug("messages: add ~p", [[Contents, Head]]),
     messages(Messages, [Contents, Head | Acc]).
 
 
 %% HTML for edition of field (<input>)
 %% Name = atom() : specify the field
 %% Value = term() : current value
-edition_field(Name, Value) ->
+edition_field(_Name, Value) ->
     % TODO get list of values for lists, get size, etc.
     { input, [{type, "text"}, {value, to_string(Value)}], ""}.
 
@@ -114,10 +113,12 @@ show_issue(Project, Issue, Messages) ->
     ].
 
 edition_form(Issue) ->
-    {ehtml, {form, [], {table, [{class, "form"}], [
-            details(Issue, []),
-            edition_message()
-        ]}  % end of table
+    {ehtml, {form, [{method, "post"}, {action, ""}, {enctype, "multipart/form-data"}],
+                {table, [{class, "form"}], [
+                    details(Issue, []),
+                    edition_message(),
+                    submit()
+                ]}  % end of table
         }}.
 
 details([], Html_rows_acc) -> lists:reverse(Html_rows_acc);
@@ -132,6 +133,11 @@ edition_message() ->
                   {textarea, [{wrap, "hard"}, {rows, "10"}, {cols, "80"}], "Enter your message"}
               }]
       }.
+
+submit() ->
+    {tr, [], [{th, [], ""},
+              {td, [], {input, [{type, "submit"}, {value, "Submit"}], ""}}
+        ]}.
 
 header(Project) ->
     case file:read_file(Project ++ "/header.html") of
