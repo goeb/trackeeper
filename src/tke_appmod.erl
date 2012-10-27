@@ -65,7 +65,8 @@ show_issue(Project, N, _Query) ->
     log:debug("show_issue(~p, ~p, ~p)", [Project, N, _Query]),
     Issue_id = list_to_integer(N),
     I = tke_db:get(Project, issue, Issue_id),
-    M = [[{author, "John"}, {ctime, 1234}, {text, "xxx"}]], % TODO
+    Id = proplists:get_value(id, I),
+    M = tke_db:search(Project, message, Id),
     case I of
         undefined -> Html = no_resource(Project);
         I -> Html = tke_html:show_issue(Project, I, M)

@@ -18,9 +18,10 @@ format_table_of_issues([ {columns, ["rowid" | Columns]}, {rows, Rows} ]) ->
 
 to_string(X) when is_list(X) -> X;
 to_string(X) when is_binary(X) -> binary_to_list(X);
-to_string(X) when is_integer(X) -> io_lib:format("~B", [X]);
-to_string(X) when is_float(X) -> io_lib:format("~.2f", [X]);
-to_string(null) -> "(null)".
+to_string(X) when is_integer(X) -> [R] = io_lib:format("~B", [X]), R;
+to_string(X) when is_float(X) -> [R] = io_lib:format("~.2f", [X]), R;
+to_string(null) -> "(null)";
+to_string(undefined) -> "(undefined)".
 
 format_cell(undefined, _Column_name, Column_value) -> Column_value;
 format_cell(Rowid, "title", Column_value) ->
@@ -76,7 +77,25 @@ format_table_rows(Column_names, [Current_row | Other], Acc) ->
 resource_not_found() ->
     [{html, "404 - Resource not found"}, {status, 404}].
 
-messages(_M) -> {html, "messages xxxxxxx"}.
+messages([], Acc) ->
+    First = {tr, [], {th, [{colspan, "4"}, {class, "header"}], "Messages"}},
+    {ehtml, {table, [{class, "messages"}], [First|lists:reverse(Acc)]}};
+messages([M | Messages], Acc) ->
+    Author = proplists:get_value(author, M),
+    Date = proplists:get_value(ctime, M),
+    Id = proplists:get_value(id, M),
+    Text = proplists:get_value(text, M, "no text"),
+    Head = {tr, [], [
+            {th, [], "msg." ++ to_string(Id)},
+            {th, [], "Author: " ++ to_string(Author)},
+            {th, [], "Date: " ++ to_string(Date)},
+            {th, [], "Bouton DELETE"}
+        ]},
+    Contents = {tr, [], {td, [{colspan, "4"}, {class, "content"}],
+            {pre, [], Text}}},
+    log:debug("messages: add ~p", [[Contents, Head]]),
+    messages(Messages, [Contents, Head | Acc]).
+
 
 %% HTML for edition of field (<input>)
 %% Name = atom() : specify the field
@@ -90,7 +109,7 @@ show_issue(Project, Issue, Messages) ->
     log:debug("show_issue..."),
     [   header(Project),
         edition_form(Issue),
-        messages(Messages),
+        messages(Messages, []),
         footer(Project)
     ].
 

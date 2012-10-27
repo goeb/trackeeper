@@ -98,9 +98,11 @@ handle_call({search, issue, _I}, _From, Ctx) ->
     {reply, [], Ctx};
 %% Return messages that belong to the given issue id
 handle_call({search, message, Issue_id}, _From, Ctx) ->
-    Pattern = #message{issue=Issue_id},
+    Pattern = #message{issue=Issue_id, _ = '_'},
+    log:debug("search ~p", [Pattern]),
     Messages = ets:match_object(Ctx#project.messages, Pattern),
-    {reply, Messages, Ctx}.
+    Mlist = [convert_to_proplist(M) || M <- Messages],
+    {reply, Mlist, Ctx}.
 
 
 handle_cast(stop, Ctx) -> {stop, normal, Ctx};
