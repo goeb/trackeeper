@@ -20,11 +20,11 @@
 -module(tke_db).
 -behaviour(gen_server).
 
--export([start/0, stop/0]).
+-export([start/1, stop/0]).
 -export([init/1, handle_call/3, handle_cast/2]).
 -export([code_change/3, handle_info/2, terminate/2]).
 
--export([get/3, update/2]).
+-export([get/3, update/2, search/3]).
 
 -include("tke_db.hrl").
 -record(project, {name, issues, messages}).
@@ -33,9 +33,9 @@
 %% API -------------------
 
 % start as many processes as there are projects in the directory
-start() ->
+start(Project) ->
     % TODO for now hardcoded project "tke"
-    gen_server:start_link({local, tke}, tke_db, "tke", []).
+    gen_server:start_link({local, list_to_atom(Project)}, tke_db, Project, []).
 
 stop() -> gen_server:cast(tke, stop).
     
@@ -50,7 +50,7 @@ update(Project, Item) ->
     gen_server:call(Project, {update, Item}).
 
 search(Project, Table, Search) ->
-    gen_server:call(Project, {search, Table, Search}).
+    gen_server:call(list_to_atom(Project), {search, Table, Search}).
 
 %% Internals -------------------
 
@@ -69,7 +69,8 @@ handle_call({get, issue, N}, _From, Ctx) ->
     {reply, I, Ctx};
 handle_call({get, message, N}, _From, Ctx) ->
     case ets:lookup(Ctx#project.messages, N) of
-        [M0] -> M = convert_to_proplist(M0);
+        [M0] -> log:debug("found message ~p", [M0]),
+            M = convert_to_proplist(M0);
         [] -> M = undefined
     end,
     {reply, M, Ctx};
@@ -93,11 +94,13 @@ handle_call({update, M = #message{}}, _From, Ctx) ->
     sync(Ctx#project.name, M2),
     {reply, {ok, M2}, Ctx};
 
-handle_call({search, issue, I}, _From, Ctx) ->
+handle_call({search, issue, _I}, _From, Ctx) ->
     {reply, [], Ctx};
-handle_call({search, message, M}, _From, Ctx) ->
-    % TODO
-    {reply, [], Ctx}.
+%% Return messages that belong to the given issue id
+handle_call({search, message, Issue_id}, _From, Ctx) ->
+    Pattern = #message{issue=Issue_id},
+    Messages = ets:match_object(Ctx#project.messages, Pattern),
+    {reply, Messages, Ctx}.
 
 
 handle_cast(stop, Ctx) -> {stop, normal, Ctx};
@@ -107,31 +110,58 @@ handle_cast(_X, Y) -> {noreply, Y}.
 load(Project) ->
     Issue_table = ets:new(issue,[private, {keypos, 2}]),
     Message_table = ets:new(message,[private, {keypos, 2}]),
-    load_issues(Project, Issue_table),
-    load_messages(Project, Message_table),
+    load_issues(Project, Issue_table, Message_table),
     {Issue_table, Message_table}.
 
-load_issues(Project, Issue_table) ->
+load_issues(Project, Issue_table, Message_table) ->
     {ok, Files} = file:list_dir(Project),
-    Paths = [Project ++ "/" ++ File ++ "/issue" || File <- Files],
-    load_issues_from_files(Paths, Issue_table).
+    Dirs = [Project ++ "/" ++ File || File <- Files],
+    load_issues_from_dirs(Dirs, Issue_table, Message_table).
 
-load_issues_from_files([], _Issue_table) -> ok;
-load_issues_from_files([File | Others], Issue_table) ->
+load_issues_from_dirs([], _Issue_table, _Message_table) -> ok;
+load_issues_from_dirs([Dir | Others], Issue_table, Message_table) ->
+    File = Dir ++ "/issue",
     case file:read_file(File) of
-        {error, _Reason} -> ok,
-            log:debug("Skip ~p", [File]);% skip this file
+        {error, _Reason} -> ok;
         {ok, Binary} ->
-            S = binary_to_list(Binary),
-            {ok, Tokens, _EndLocation} = erl_scan:string(S),
-            {ok, Term} = erl_parse:parse_term(Tokens),
+            Term = decode_contents(Binary),
             ets:insert(Issue_table, Term),
             log:debug("Issue ~p loaded.", [File])
     end,
-    load_issues_from_files(Others, Issue_table).
+    load_messages(Dir, Message_table),
+    load_issues_from_dirs(Others, Issue_table, Message_table).
 
+decode_contents(Binary) ->
+    S = binary_to_list(Binary),
+    {ok, Tokens, _EndLocation} = erl_scan:string(S),
+    {ok, Term} = erl_parse:parse_term(Tokens),
+    Term.
 
-load_messages(_Project, _Message_table) -> todo.
+load_messages(Dir, Message_table) -> 
+    log:debug("load_messages(~p)", [Dir]),
+    case file:list_dir(Dir) of
+        {ok, Files} -> load_messages_from_files(Dir, Files, Message_table);
+        {error, Reason} -> ok
+    end.
+
+load_messages_from_files(_Dir, [], _Message_table) -> ok;
+% Consider files starting with "msg."
+load_messages_from_files(Dir, [[$m, $s, $g, $. | Id]|Others], Message_table) ->
+    File = Dir ++ "/msg." ++ Id,
+    log:debug("Message ~p", [File]),
+    case file:read_file(File) of
+        {error, _Reason} -> log:debug("Message ~p rejected", [File]);
+        {ok, Binary} ->
+            Term = decode_contents(Binary),
+            ets:insert(Message_table, Term),
+            log:debug("Message ~p loaded.", [File])
+    end,
+    load_messages_from_files(Dir, Others, Message_table);
+% other files, not starting with "msg."
+load_messages_from_files(Dir, [_F|Others], Message_table) ->
+    log:debug("Message ~p (2)", [_F]),
+    load_messages_from_files(Dir, Others, Message_table).
+
 
 %% write to disk what has been modified
 sync(Project, I = #issue{}) -> 
@@ -175,7 +205,9 @@ get_max_id(Table, Key, N) ->
     get_max_id(Table, ets:next(Table, Key), Max).
 
 convert_to_proplist(I = #issue{}) ->
-    lists:zip(record_info(fields, issue), tl(tuple_to_list(I))).
+    lists:zip(record_info(fields, issue), tl(tuple_to_list(I)));
+convert_to_proplist(M = #message{}) ->
+    lists:zip(record_info(fields, message), tl(tuple_to_list(M))).
 
 
 

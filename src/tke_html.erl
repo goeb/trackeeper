@@ -78,25 +78,47 @@ resource_not_found() ->
 
 messages(_M) -> {html, "messages xxxxxxx"}.
 
-details([], Html_rows_acc) ->
-    {ehtml, {table, [{class, "form"}], lists:reverse(Html_rows_acc)}};
-details([{Name, Value} | Others], Acc) ->
-    Ehtml = { tr, [], [{th, [], atom_to_list(Name)}, {td, [], to_string(Value)}]},
-    details(Others, [Ehtml | Acc]).
-
+%% HTML for edition of field (<input>)
+%% Name = atom() : specify the field
+%% Value = term() : current value
+edition_field(Name, Value) ->
+    % TODO get list of values for lists, get size, etc.
+    { input, [{type, "text"}, {value, to_string(Value)}], ""}.
 
 % return EHTML for diaplying issue
 show_issue(Project, Issue, Messages) ->
     log:debug("show_issue..."),
     [   header(Project),
-        details(Issue, []),
+        edition_form(Issue),
         messages(Messages),
         footer(Project)
     ].
 
+edition_form(Issue) ->
+    {ehtml, {form, [], {table, [{class, "form"}], [
+            details(Issue, []),
+            edition_message()
+        ]}  % end of table
+        }}.
+
+details([], Html_rows_acc) -> lists:reverse(Html_rows_acc);
+details([{Name, Value} | Others], Acc) ->
+    Ehtml = {tr, [], [{th, [], atom_to_list(Name)},
+                      {td, [], edition_field(Name, Value)}]},
+    details(Others, [Ehtml | Acc]).
+
+edition_message() ->
+    {tr, [], [{th, [], "Description: "},
+              {td, [],
+                  {textarea, [{wrap, "hard"}, {rows, "10"}, {cols, "80"}], "Enter your message"}
+              }]
+      }.
 
 header(Project) ->
-    {ok, Header} = file:read_file(Project ++ "/header.html"),
+    case file:read_file(Project ++ "/header.html") of
+        {ok, Header} -> ok;
+        {error, Reason} -> Header = "no header: " ++ atom_to_list(Reason)
+    end,
     {html, Header}.
 
 footer(Project) ->
