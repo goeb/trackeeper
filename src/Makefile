@@ -1,4 +1,9 @@
 
-all:
-	erlc +debug_info *erl 
-	mv *beam ../ebin
+SRCS = *.erl
+OBJS = $(SRCS:%.erl=../ebin/%.beam)
+
+all: $(OBJS)
+
+../ebin/%.beam: %.erl
+	erlc +debug_info $^
+	mv *.beam ../ebin

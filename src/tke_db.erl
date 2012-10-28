@@ -11,7 +11,7 @@
 %%%              {ctime, undefined}, {contents, undefined}]
 %%% tke_db:get(tke, issue, 2).
 %%%     ...
-%%% tke_db:update(tke, M#message{issue=1}).
+%%% tke_db:update(tke, issue, [{id, undefined}, ...]).
 %%%     {ok,#message{id = 4,issue = 1,author = undefined,
 %%%          ctime = undefined,contents = undefined}}
 
@@ -24,7 +24,7 @@
 -export([init/1, handle_call/3, handle_cast/2]).
 -export([code_change/3, handle_info/2, terminate/2]).
 
--export([get/3, update/2, search/3]).
+-export([get/3, update/3, search/3, get_empty_issue/0]).
 
 -include("tke_db.hrl").
 -record(project, {name, issues, messages}).
@@ -46,11 +46,18 @@ get(Project, Table, N) when is_list(Project) ->
 
 % if new issue, then create and return id.
 % if existing issue, then update
-update(Project, Item) ->
-    gen_server:call(Project, {update, Item}).
+update(Project, Kind, Item) ->
+    log:debug("update0: "),
+    gen_server:call(list_to_atom(Project), {update, Kind, Item}).
 
 search(Project, Table, Search) ->
     gen_server:call(list_to_atom(Project), {search, Table, Search}).
+
+%% Return proplists of issue, with all fields undefined
+get_empty_issue() ->
+    I = #issue{},
+    convert_to_proplist(I).
+
 
 %% Internals -------------------
 
@@ -75,19 +82,22 @@ handle_call({get, message, N}, _From, Ctx) ->
     end,
     {reply, M, Ctx};
 %% create new issue
-handle_call({update, I = #issue{id=undefined}}, _From, Ctx) ->
-    New_id = get_new_id(Ctx#project.issues),
-    I2 = I#issue{id=New_id},
-    handle_call({update, I2}, _From, Ctx);
-
-%% update new issue with id, or existing issue (with id also)
-handle_call({update, I = #issue{}}, _From, Ctx) ->
-    ets:insert(Ctx#project.issues, I),
+handle_call({update, issue, Issue}, _From, Ctx) ->
+    log:debug("update: Issue=~p", [Issue]),
+    Id0 = proplists:get_value(id, Issue),
+    case Id0 of 
+        undefined -> Id = get_new_id(Ctx#project.issues);
+        Id0 -> Id = Id0
+    end,
+    I2 = convert_to_record(issue, Issue),
+    I3 = I2#issue{id=Id},
+    ets:insert(Ctx#project.issues, I3),
     log:debug("going to sync..."),
-    sync(Ctx#project.name, I),
-    {reply, {ok, I}, Ctx};
+    sync(Ctx#project.name, I3),
+    {reply, {ok, Id}, Ctx};
 %% create new message
-handle_call({update, M = #message{}}, _From, Ctx) ->
+handle_call({update, message, Message}, _From, Ctx) ->
+    M = convert_to_record(message, Message),
     New_id = get_new_id(Ctx#project.messages),
     M2 = M#message{id=New_id},
     ets:insert(Ctx#project.messages, M2),
@@ -233,6 +243,18 @@ convert_to_proplist(I = #issue{}) ->
 convert_to_proplist(M = #message{}) ->
     lists:zip(record_info(fields, message), tl(tuple_to_list(M))).
 
+% Message or Issue = proplist()
+convert_to_record(message, M) ->
+    Keys = record_info(fields, message),
+    convert_to_record(Keys, M, [message]);
+convert_to_record(issue, I) ->
+    Keys = record_info(fields, issue),
+    convert_to_record(Keys, I, [issue]).
 
+convert_to_record([], _Proplist, Record) ->
+    list_to_tuple(lists:reverse(Record));
+convert_to_record([Key | Others], Proplist, Record) ->
+    Value = proplists:get_value(Key, Proplist),
+    convert_to_record(Others, Proplist, [Value|Record]).
 
 

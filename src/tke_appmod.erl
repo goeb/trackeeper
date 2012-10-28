@@ -71,15 +71,10 @@ show_issue(Project, N, _Query) ->
         undefined -> Html = no_resource(Project);
         I -> Html = tke_html:show_issue(Project, I, M)
     end,
-
-    % TODO
-    %Issue = [{title, "critical error should be simple error"},
-    %         {status, "open"},
-    %         {owner,"John Smith"},
-    %         {date, 123456}
-    %        ],
-    %log:debug("show_issue: Html=~p", [Html]),
     Html.
+
+new_issue(Project, Query) ->
+    tke_html:show_issue(Project, tke_db:get_empty_issue(), []).
 
 
 % make a proplist from the query string
@@ -93,10 +88,50 @@ parse_query_string(Query_string) ->
     [{list_to_atom(X), Y} || [X, Y] <- Q2]. % make a proplist
 
 
-serve('GET', Url_tokens, Query_string) -> http_get(Url_tokens, Query_string);
-serve('POST', Url_tokens, Query_string) -> http_post(Url_tokens, Query_string).
+serve('GET', Url_tokens, Http_req) -> 
+    Q = parse_query_string(Http_req#arg.querydata),
+    http_get(Url_tokens, Q);
+serve('POST', Url_tokens, Http_req) ->
+    case yaws_api:parse_multipart_post(Http_req) of
+        {result, Data} -> 
+                log:debug("content_type=~p",
+                    [Http_req#arg.headers#headers.content_type]),
+                http_post(Url_tokens, Data);
+        {cont, Cont, _Res} ->
+            % TODO accumulate data
+            {get_more, Cont, todo}
+    end.
+    %Post_data = yaws_api:parse_post(Http_req),
+    %log:debug("Post: Multipart=~p", [Multipart]),
+    %log:debug("Post: Post_data=~p", [Post_data]),
 
-http_post(_Url_tokens, _Query_string) -> tke_html:resource_not_found().
+http_post([Project, "issue", N], Multipart_data) -> 
+    % consolidate Multipart_data
+    Issue = consolidate_multipart(Multipart_data, []),
+    I2 = proplists:delete(id, Issue), % normally not needed
+    case N of
+        "new" -> % set id = undefined
+            I3 = [{id, undefined} | I2];
+        N -> 
+            Id = list_to_integer(N),
+            I3 = [{id, Id} | I2]
+    end,
+    {ok, Id4} = tke_db:update(Project, issue, I3),
+    log:debug("Id4=~p", [Id4]),
+    case N of
+        "new" ->
+            Redirect_url = "/" ++ Project ++ "/issue/" ++ integer_to_list(Id4),
+            log:debug("redirect to: " ++ Redirect_url),
+            {redirect, Redirect_url};
+        N -> show_issue(Project, N, "")
+    end.
+
+% convert multipart list to a proplist
+consolidate_multipart([], Acc) -> Acc;
+consolidate_multipart([{head,{Name,_Headers}}, {body, Value} | Others], Acc) ->
+    Atom = list_to_atom(Name), % TODO prevent DOS via too many atoms
+    consolidate_multipart(Others, [{Atom, Value}|Acc]).
+
 
 % HTTP get
 % Project = name of project = list(char)
@@ -106,17 +141,17 @@ http_get([], _Query) -> tke_html:resource_not_found();
 http_get([Project], _Query) -> no_resource(Project);
 http_get([Project, "issue"], Query) -> list_issues(Project, Query);
 http_get([Project, "issue", "list"], Query) -> list_issues(Project, Query);
+http_get([Project, "issue", "new"], Query) -> new_issue(Project, Query);
 http_get([Project, "issue", N], Query) -> show_issue(Project, N, Query);
 http_get(A, B) -> log:info("Invalid GET request ~p ? ~p", [A, B]),
     tke_html:resource_not_found().
 
 out(A) ->
-    %log:debug("out(~p)", [A]),
+    log:debug("out(~p)", [A]),
     Method = A#arg.req#http_request.method,
-    Q = parse_query_string(A#arg.querydata),
     % TODO parse cookie / get session
     Url_tokens = string:tokens(A#arg.appmoddata, "/"),
-    serve(Method, Url_tokens, Q).
+    serve(Method, Url_tokens, A).
 
     %% old code for managing session
 out_old(A) ->

@@ -15,8 +15,8 @@ format_table_of_issues(Columns, Issues) ->
     %log:debug("format_table_of_issues: Columns=~p, Rows=~p", [Columns, Rows]),
     Head_ehtml = format_row(undefined, Columns, Columns, th),
     Rows_ehtml = format_table_rows(Columns, Issues), % /!\ extra rowid is in Rows
-    log:debug("Head_ehtml=~p", [Head_ehtml]),
-    log:debug("Rows_ehtml=~p", [Rows_ehtml]),
+    %log:debug("Head_ehtml=~p", [Head_ehtml]),
+    %log:debug("Rows_ehtml=~p", [Rows_ehtml]),
     {ehtml, { table, [{class, "list"}], [Head_ehtml, Rows_ehtml]}}.
 
 to_string(X) when is_list(X) -> X;
@@ -103,21 +103,38 @@ messages([M | Messages], Acc) ->
 %% HTML for edition of field (<input>)
 %% Name = atom() : specify the field
 %% Value = term() : current value
-edition_field(_Name, Value) ->
+edition_field(Name, Value) ->
     % TODO get list of values for lists, get size, etc.
-    { input, [{type, "text"}, {value, to_string(Value)}], ""}.
+    { input, [{name, atom_to_list(Name)},
+            {type, "text"}, {value, to_string(Value)}], ""}.
 
 % return EHTML for diaplying issue
 show_issue(Project, Issue, Messages) ->
     log:debug("show_issue..."),
     [   header(Project),
+        title_issue(Issue),
         edition_form(Issue),
         messages(Messages, []),
         footer(Project)
     ].
 
+title_issue(Issue) ->
+    case proplists:get_value(id, Issue) of
+        undefined -> % case of new issue
+            Title = "Create new issue";
+        Id0 -> 
+            Id = integer_to_list(Id0),
+            Title = "Issue " ++ Id
+    end,
+    {ehtml, {h1, [], Title}}.
+
 edition_form(Issue) ->
-    {ehtml, {form, [{method, "post"}, {action, ""}, {enctype, "multipart/form-data"}],
+    {ehtml, {form, [
+                {method, "post"},
+                {action, ""},
+                {enctype, "multipart/form-data"}
+            ],
+
                 {table, [{class, "form"}], [
                     details(Issue, []),
                     edition_message(),
@@ -126,6 +143,8 @@ edition_form(Issue) ->
         }}.
 
 details([], Html_rows_acc) -> lists:reverse(Html_rows_acc);
+% id is not editable
+details([{id, _Value} | Others], Acc) -> details(Others, Acc);
 details([{Name, Value} | Others], Acc) ->
     Ehtml = {tr, [], [{th, [], atom_to_list(Name)},
                       {td, [], edition_field(Name, Value)}]},
@@ -134,7 +153,10 @@ details([{Name, Value} | Others], Acc) ->
 edition_message() ->
     {tr, [], [{th, [], "Description: "},
               {td, [],
-                  {textarea, [{wrap, "hard"}, {rows, "10"}, {cols, "80"}], "Enter your message"}
+                  {textarea, [
+                          {name, message},
+                          {wrap, "hard"}, {rows, "10"}, {cols, "80"}
+                      ], "Enter your message"}
               }]
       }.
 
