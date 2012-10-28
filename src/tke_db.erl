@@ -94,8 +94,22 @@ handle_call({update, M = #message{}}, _From, Ctx) ->
     sync(Ctx#project.name, M2),
     {reply, {ok, M2}, Ctx};
 
-handle_call({search, issue, _I}, _From, Ctx) ->
-    {reply, [], Ctx};
+% Search : proplist
+%   key columns : list of columns needed in the return value
+%   key pattern : pattern for selective search TODO
+handle_call({search, issue, Search}, _From, Ctx) ->
+    log:debug("search issue: Search=~p", [Search]),
+    % for now, return the list of all issues
+    Pattern = #issue{_ = '_'},
+    Issues = ets:match_object(Ctx#project.issues, Pattern),
+    I_list = [convert_to_proplist(I) || I <- Issues],
+    % now keep only the needed columns
+    Columns = proplists:get_value(columns, Search),
+    case Columns of
+        all -> Needed_columns = record_info(fields, issue);
+        Needed_columns -> ok
+    end,
+    {reply, {Needed_columns, I_list}, Ctx};
 %% Return messages that belong to the given issue id
 handle_call({search, message, Issue_id}, _From, Ctx) ->
     Pattern = #message{issue=Issue_id, _ = '_'},
@@ -103,6 +117,14 @@ handle_call({search, message, Issue_id}, _From, Ctx) ->
     Messages = ets:match_object(Ctx#project.messages, Pattern),
     Mlist = [convert_to_proplist(M) || M <- Messages],
     {reply, Mlist, Ctx}.
+
+%% List : list of proplists
+%% For each proplist, delete columns that are not mentioned in Columns
+keep_columns([], _Columns, Acc) -> Acc;
+keep_columns([Plist | Others], Columns, Acc) ->
+    log:debug("keep_columns: Plist=~p, Columns=~p", [Plist, Columns]),
+    {Lists, _Rest} = proplists:split(Plist, Columns),
+    keep_columns(Others, Columns, [Lists | Acc]).
 
 
 handle_cast(stop, Ctx) -> {stop, normal, Ctx};
@@ -143,7 +165,7 @@ load_messages(Dir, Message_table) ->
     log:debug("load_messages(~p)", [Dir]),
     case file:list_dir(Dir) of
         {ok, Files} -> load_messages_from_files(Dir, Files, Message_table);
-        {error, Reason} -> ok
+        {error, _Reason} -> ok
     end.
 
 load_messages_from_files(_Dir, [], _Message_table) -> ok;

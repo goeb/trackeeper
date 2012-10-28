@@ -9,11 +9,14 @@
 -compile(export_all).
 
 % Return the ehtml structure for the table of issues
-% The rowid is always the first item of rows, as we need it for hyper-links
-format_table_of_issues([ {columns, ["rowid" | Columns]}, {rows, Rows} ]) ->
+% The rowid must be present
+% Issues = List of proplists
+format_table_of_issues(Columns, Issues) ->
     %log:debug("format_table_of_issues: Columns=~p, Rows=~p", [Columns, Rows]),
     Head_ehtml = format_row(undefined, Columns, Columns, th),
-    Rows_ehtml = format_table_rows(Columns, Rows), % /!\ extra rowid is in Rows
+    Rows_ehtml = format_table_rows(Columns, Issues), % /!\ extra rowid is in Rows
+    log:debug("Head_ehtml=~p", [Head_ehtml]),
+    log:debug("Rows_ehtml=~p", [Rows_ehtml]),
     {ehtml, { table, [{class, "list"}], [Head_ehtml, Rows_ehtml]}}.
 
 to_string(X) when is_list(X) -> X;
@@ -23,7 +26,7 @@ to_string(X) when is_float(X) -> [R] = io_lib:format("~.2f", [X]), R;
 to_string(null) -> "(null)";
 to_string(undefined) -> "(undefined)".
 
-format_cell(undefined, _Column_name, Column_value) -> Column_value;
+format_cell(undefined, Column_name, _Column_value) -> atom_to_list(Column_name);
 format_cell(Rowid, "title", Column_value) ->
     {a, [{href, to_string(Rowid)}], to_string(Column_value)};
 format_cell(_Rowid, "date", null) -> to_string(null);
@@ -47,32 +50,33 @@ format_cell(_Rowid, _Column_name, Column_value) -> to_string(Column_value).
 
 
 % Type_of_cell = td | th
-format_row(Rowid, Column_names, Columns, Type_of_cell) ->
-    C = format_row(Rowid, Column_names, Columns, [], Type_of_cell),
+format_row(Rowid, Column_names, Issue, Type_of_cell) ->
+    C = format_row(Rowid, Column_names, Issue, [], Type_of_cell),
     C2 = lists:reverse(C),
-    {tr, [{class, "t_tr_head"}], C2}.
+    {tr, [], C2}.
 
 % ther should be as many column names as columns
-format_row(_Rowid, [], [], Acc, _Type_of_cell) -> Acc;
-format_row(Rowid, [N | Other_names], [C | Other_columns], Acc, Type_of_cell) ->
+format_row(_Rowid, [], _Issue, Acc, _Type_of_cell) -> Acc;
+format_row(Rowid, [N | Other_names], Issue, Acc, Type_of_cell) ->
+    C = proplists:get_value(N, Issue),
     Text = format_cell(Rowid, N, C),
-    This_cell = { Type_of_cell, [{class, "t_td"}], Text},
+    This_cell = {Type_of_cell, [], Text},
     Acc2 = [This_cell | Acc],
-    format_row(Rowid, Other_names, Other_columns, Acc2, Type_of_cell).
+    format_row(Rowid, Other_names, Issue, Acc2, Type_of_cell).
     
 
 % Each row contains first the rowid, which must not be displayed
 % Columns do not contain this first one.
 % rowid may also be present in the other columns, if requested for display
-format_table_rows(Columns, Rows) ->
-    R = format_table_rows(Columns, Rows, []),
+format_table_rows(Columns, Issues) ->
+    R = format_table_rows(Columns, Issues, []),
     lists:reverse(R). % put rows in correct order
 
 format_table_rows(_Columns, [], Acc) -> Acc;
-format_table_rows(Column_names, [Current_row | Other], Acc) ->
-    [Rowid | Cols] = tuple_to_list(Current_row),
-    Acc2 = [format_row(Rowid, Column_names, Cols, td) | Acc],
-    format_table_rows(Column_names, Other, Acc2).
+format_table_rows(Columns, [Issue | Others], Acc) ->
+    Rowid = proplists:get_value(id, Issue),
+    Acc2 = [format_row(Rowid, Columns, Issue, td) | Acc],
+    format_table_rows(Columns, Others, Acc2).
 
 resource_not_found() ->
     [{html, "404 - Resource not found"}, {status, 404}].

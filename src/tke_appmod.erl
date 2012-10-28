@@ -52,10 +52,10 @@ list_issues(Project_name, Query_params) ->
         undefined -> Colspec2 = all;
         _else -> Colspec2 = string:tokens(Colspec, "+")
     end,
-    Issues = tke_base:list(Project_name, [{columns, Colspec2}]),
+    {Columns, Issues} = tke_db:search(Project_name, issue, [{columns, Colspec2}]),
     %Table = 
     [tke_html:header(Project_name),
-     tke_html:format_table_of_issues(Issues),
+     tke_html:format_table_of_issues(Columns, Issues),
      tke_html:footer(Project_name)
     ].
 
