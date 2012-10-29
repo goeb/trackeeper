@@ -1,44 +1,4 @@
 
-Database Structure
-----------------
-Disk
-    Issue
-[
-    {id, 1},
-    {title, "Status bar should be disabled when not needed"},
-    {status, "open"},
-    {owner, "John Smith"},
-    {summary, "all is in the title"},
-    {created, 12325414},
-    {tags, [<<"linky1">>, <<"Texas">>]}
-]
-
-
-Memory : ETS table "issue"
----------------------------
-key : id
-{issue, 4343, <<"Status bar should...">>, <<"open">>, <<"John Smith">>, ...}
-
-Directory structure
---------------------
-sampleProject/
-sampleProject/1
-sampleProject/1/fileX.txt
-sampleProject/1/1.msg
-sampleProject/1/issue
-sampleProject/1/3.msg
-sampleProject/1/2.msg
-sampleProject/2
-sampleProject/2/fileX.txt
-sampleProject/2/1.msg
-sampleProject/2/issue
-sampleProject/2/3.msg
-sampleProject/2/2.msg
-sampleProject/4
-sampleProject/3
-
-
-
 REST API
 ----------
 http://localhost:8000/
@@ -47,7 +7,9 @@ GET
     /projectName/             : home page of project
     /projectName/issue/[list] : list of issues
         optional query string :
-        can=1&q=searchtext&colspec=Stars+ID+Type+Status+Priority+Owner+Summary
+        can=1&q=searchtext
+        sort=id+title-owner : id ascending, then title ascending, then owner descending
+        colspec=Stars+ID+Type+Status+Priority+Owner+Summary
         can=2&q=label%3Atyty%20status%3Astarted%20cc%3Ayyyyyyyyyyyuuuu
         
     /projectName/issue/N      : details of issue N

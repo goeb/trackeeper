@@ -119,7 +119,13 @@ handle_call({search, issue, Search}, _From, Ctx) ->
         all -> Needed_columns = record_info(fields, issue);
         Needed_columns -> ok
     end,
-    {reply, {Needed_columns, I_list}, Ctx};
+
+    % do the sorting
+    Sort = proplists:get_value(sort, Search),
+    log:debug("search: Sort=~p", [Sort]),
+    I_list2 = sort(I_list, Sort),
+    {reply, {Needed_columns, I_list2}, Ctx};
+
 %% Return messages that belong to the given issue id
 handle_call({search, message, Issue_id}, _From, Ctx) ->
     Pattern = #message{issue=Issue_id, _ = '_'},
@@ -257,4 +263,14 @@ convert_to_record([Key | Others], Proplist, Record) ->
     Value = proplists:get_value(Key, Proplist),
     convert_to_record(Others, Proplist, [Value|Record]).
 
+sort(I_list, undefined) -> I_list;
+%% Sort = list(atom())
+sort(I_list, [Col]) ->
+    % less than or equal function
+    Lte = fun(A, B) ->
+            proplists:get_value(Col, A) < proplists:get_value(Col, B) end,
+    lists:sort(Lte, I_list);
+   
+%% TODO multi-column  sorting
+sort(_I_list, _Sort) -> todo.
 

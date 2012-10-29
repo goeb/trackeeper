@@ -47,18 +47,31 @@ no_resource(_Project_name) -> tke_html:resource_not_found().
 
 list_issues(Project_name, Query_params) ->
     log:info("list_issues(~p, issues, list, query=~p)\n", [Project_name, Query_params]),
-    Colspec = proplists:get_value(colspec, Query_params),
-    case Colspec of
-        undefined -> Colspec2 = all;
-        _else -> 
-            Colspec2 = [list_to_atom(X) || X <- string:tokens(Colspec, "+")]
-    end,
-    {Columns, Issues} = tke_db:search(Project_name, issue, [{columns, Colspec2}]),
-    %Table = 
+    Colspec = get_colspec(Query_params),
+    Sorting = get_sorting(Query_params),
+    {Columns, Issues} = tke_db:search(Project_name, issue,
+        [{columns, Colspec}, {sort, Sorting}]),
     [tke_html:header(Project_name),
      tke_html:format_table_of_issues(Columns, Issues),
      tke_html:footer(Project_name)
     ].
+
+get_colspec(Query_params) ->
+    Colspec = proplists:get_value(colspec, Query_params),
+    case Colspec of
+        undefined -> all;
+        _Else -> [list_to_atom(X) || X <- string:tokens(Colspec, "+")]
+    end.
+
+%% sort=id+title-owner
+%% => id ascending, then title ascending, then owner descending
+get_sorting(Query_params) ->
+    Sorting = proplists:get_value(sort, Query_params),
+    case Sorting of
+        undefined -> undefined;
+        _Else -> [list_to_atom(X) || X <- string:tokens(Sorting, "+")]
+    end.
+
 
 % show page for issue N
 % N = list(char)
