@@ -27,7 +27,7 @@ to_string(null) -> "(null)";
 to_string(undefined) -> "(undefined)".
 
 format_cell(undefined, Column_name, _Column_value) -> atom_to_list(Column_name);
-format_cell(Rowid, "title", Column_value) ->
+format_cell(Rowid, title, Column_value) ->
     {a, [{href, to_string(Rowid)}], to_string(Column_value)};
 format_cell(_Rowid, "date", null) -> to_string(null);
 format_cell(_Rowid, "date", Column_value) ->

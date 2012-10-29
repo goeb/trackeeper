@@ -50,7 +50,8 @@ list_issues(Project_name, Query_params) ->
     Colspec = proplists:get_value(colspec, Query_params),
     case Colspec of
         undefined -> Colspec2 = all;
-        _else -> Colspec2 = string:tokens(Colspec, "+")
+        _else -> 
+            Colspec2 = [list_to_atom(X) || X <- string:tokens(Colspec, "+")]
     end,
     {Columns, Issues} = tke_db:search(Project_name, issue, [{columns, Colspec2}]),
     %Table = 
@@ -73,7 +74,7 @@ show_issue(Project, N, _Query) ->
     end,
     Html.
 
-new_issue(Project, Query) ->
+new_issue(Project, _Query) ->
     tke_html:show_issue(Project, tke_db:get_empty_issue(), []).
 
 
@@ -117,6 +118,7 @@ http_post([Project, "issue", N], Multipart_data) ->
             I3 = [{id, Id} | I2]
     end,
     {ok, Id4} = tke_db:update(Project, issue, I3),
+    % TODO add message in database
     log:debug("Id4=~p", [Id4]),
     case N of
         "new" ->
@@ -147,7 +149,7 @@ http_get(A, B) -> log:info("Invalid GET request ~p ? ~p", [A, B]),
     tke_html:resource_not_found().
 
 out(A) ->
-    log:debug("out(~p)", [A]),
+    %log:debug("out(~p)", [A]),
     Method = A#arg.req#http_request.method,
     % TODO parse cookie / get session
     Url_tokens = string:tokens(A#arg.appmoddata, "/"),
