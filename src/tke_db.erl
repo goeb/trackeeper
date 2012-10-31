@@ -34,7 +34,6 @@
 
 % start as many processes as there are projects in the directory
 start(Project) ->
-    % TODO for now hardcoded project "tke"
     gen_server:start_link({local, list_to_atom(Project)}, tke_db, Project, []).
 
 stop() -> gen_server:cast(tke, stop).
@@ -44,11 +43,12 @@ stop() -> gen_server:cast(tke, stop).
 get(Project, Table, N) when is_list(Project) ->
     gen_server:call(list_to_atom(Project), {get, Table, N}).
 
-% if new issue, then create and return id.
-% if existing issue, then update
-update(Project, Kind, Item) ->
+%% if new issue, then create and return id.
+%% if existing issue, then update
+%% Issue contains the message
+update(Project, issue, Issue) ->
     log:debug("update0: "),
-    gen_server:call(list_to_atom(Project), {update, Kind, Item}).
+    gen_server:call(list_to_atom(Project), {update, Issue}).
 
 search(Project, Table, Search) ->
     gen_server:call(list_to_atom(Project), {search, Table, Search}).
@@ -63,9 +63,10 @@ get_empty_issue() ->
 
 %% Project = list(char)
 init(Project) ->
-    log:debug("init(~p)", [Project]),
+    log:debug("Loading project ~p", [Project]),
     % TODO load from disk and populate an ets table
     {Issues, Messages} = load(Project),
+    log:debug("Loading project ~p completed", [Project]),
     {ok, #project{name=Project, issues=Issues, messages=Messages}}.
 
 handle_call({get, issue, N}, _From, Ctx) ->
@@ -76,15 +77,17 @@ handle_call({get, issue, N}, _From, Ctx) ->
     {reply, I, Ctx};
 handle_call({get, message, N}, _From, Ctx) ->
     case ets:lookup(Ctx#project.messages, N) of
-        [M0] -> log:debug("found message ~p", [M0]),
+        [M0] -> %log:debug("found message ~p", [M0]),
             M = convert_to_proplist(M0);
         [] -> M = undefined
     end,
     {reply, M, Ctx};
 %% create new issue
-handle_call({update, issue, Issue}, _From, Ctx) ->
+%% Issue contains the message
+handle_call({update, Issue}, _From, Ctx) ->
     log:debug("update: Issue=~p", [Issue]),
     Id0 = proplists:get_value(id, Issue),
+    % TODO the diff of the issue wrt. to previous value
     case Id0 of 
         undefined -> Id = get_new_id(Ctx#project.issues);
         Id0 -> Id = Id0
@@ -94,6 +97,8 @@ handle_call({update, issue, Issue}, _From, Ctx) ->
     ets:insert(Ctx#project.issues, I3),
     log:debug("going to sync..."),
     sync(Ctx#project.name, I3),
+    % now add the message
+    add_message(Id, Issue, Ctx),
     {reply, {ok, Id}, Ctx};
 %% create new message
 handle_call({update, message, Message}, _From, Ctx) ->
@@ -165,8 +170,8 @@ load_issues_from_dirs([Dir | Others], Issue_table, Message_table) ->
         {error, _Reason} -> ok;
         {ok, Binary} ->
             Term = decode_contents(Binary),
-            ets:insert(Issue_table, Term),
-            log:debug("Issue ~p loaded.", [File])
+            ets:insert(Issue_table, Term)
+            %log:debug("Issue ~p loaded.", [File])
     end,
     load_messages(Dir, Message_table),
     load_issues_from_dirs(Others, Issue_table, Message_table).
@@ -178,7 +183,7 @@ decode_contents(Binary) ->
     Term.
 
 load_messages(Dir, Message_table) -> 
-    log:debug("load_messages(~p)", [Dir]),
+    %log:debug("load_messages(~p)", [Dir]),
     case file:list_dir(Dir) of
         {ok, Files} -> load_messages_from_files(Dir, Files, Message_table);
         {error, _Reason} -> ok
@@ -188,18 +193,24 @@ load_messages_from_files(_Dir, [], _Message_table) -> ok;
 % Consider files starting with "msg."
 load_messages_from_files(Dir, [[$m, $s, $g, $. | Id]|Others], Message_table) ->
     File = Dir ++ "/msg." ++ Id,
-    log:debug("Message ~p", [File]),
+    %log:debug("Message ~p", [File]),
     case file:read_file(File) of
         {error, _Reason} -> log:debug("Message ~p rejected", [File]);
         {ok, Binary} ->
             Term = decode_contents(Binary),
-            ets:insert(Message_table, Term),
-            log:debug("Message ~p loaded.", [File])
+            case merge_to_record(message, Term) of
+                {error, Reason} -> log:error("Cannot load message ~p: ~p",
+                                             [Id, Reason]);
+                {ok, T} -> ets:insert(Message_table, T)
+            end
+            % TODO if Term != T, the sync on th disk
+            % (record structure has changed)
+            %log:debug("Message ~p loaded.", [File])
     end,
     load_messages_from_files(Dir, Others, Message_table);
 % other files, not starting with "msg."
 load_messages_from_files(Dir, [_F|Others], Message_table) ->
-    log:debug("Message ~p (2)", [_F]),
+    %log:debug("Message ~p (2)", [_F]),
     load_messages_from_files(Dir, Others, Message_table).
 
 
@@ -273,4 +284,46 @@ sort(I_list, [Col]) ->
    
 %% TODO multi-column  sorting
 sort(_I_list, _Sort) -> todo.
+
+
+%% Issue_id : id of related issue
+%% Message = proplists() (contains also Issue info, but not needed here)
+%% Ctx : context of the server    
+add_message(Issue_id, Message, Ctx) ->
+    Text = proplists:get_value(message, Message),
+    %% TODO File = proplists:get_value(file, Message),
+    TS = {_,_,_Micro} = os:timestamp(),
+    Timestamp = calendar:now_to_universal_time(TS),
+    % TODO author
+    Id = get_new_id(Ctx#project.messages),
+    M = #message{id=Id, issue=Issue_id, author="John Doe", ctime=Timestamp,
+             text=Text},
+
+    ets:insert(Ctx#project.messages, M),
+    sync(Ctx#project.name, M),
+    ok.
+
+merge_to_record(message, Term) ->
+    case element(1, Term) of
+        message -> 
+            N = size(Term) - size(#message{}),
+            case N of
+                N when N > 0 -> T = delete_elements(Term, N);
+                N when N == 0 -> T = Term;
+                N when N < 0 -> T = add_elements(Term, -N)
+            end,
+            {ok, T};
+        _Other -> {error, "Not a message structure"}
+    end.
+
+delete_elements(Tuple, 0) -> Tuple;
+delete_elements(Tuple, N) ->
+    List = tuple_to_list(Tuple),
+    Size = size(List),
+    L2 = lists:sublist(List, 1, Size - N),
+    list_to_tuple(L2).
+
+add_elements(Tuple, 0) -> Tuple;
+add_elements(Tuple, N) ->
+    add_elements(erlang:append_element(Tuple, undefined), N-1).
 

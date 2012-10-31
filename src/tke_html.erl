@@ -19,6 +19,13 @@ format_table_of_issues(Columns, Issues) ->
     %log:debug("Rows_ehtml=~p", [Rows_ehtml]),
     {ehtml, { table, [{class, "list"}], [Head_ehtml, Rows_ehtml]}}.
 
+date_to_string(undefined) -> "(undefined)";
+date_to_string(Timestamp) ->
+    {{Y, Month, D},{H, Min, S}} = calendar:universal_time_to_local_time(Timestamp),
+    L = io_lib:format("~B-~2..0B-~2..0B ~2..0B:~2..0B:~2..0B",
+                      [Y, Month, D, H, Min, S]),
+    lists:flatten(L).
+
 to_string(X) when is_list(X) -> X;
 to_string(X) when is_binary(X) -> binary_to_list(X);
 to_string(X) when is_integer(X) -> [R] = io_lib:format("~B", [X]), R;
@@ -92,11 +99,11 @@ messages([M | Messages], Acc) ->
     Head = {tr, [], [
             {th, [], "msg." ++ to_string(Id)},
             {th, [], "Author: " ++ to_string(Author)},
-            {th, [], "Date: " ++ to_string(Date)},
+            {th, [], "Date: " ++ date_to_string(Date)},
             {th, [], "Bouton DELETE"}
         ]},
     Contents = {tr, [], {td, [{colspan, "4"}, {class, "content"}],
-            {pre, [], Text}}},
+            {pre, [], to_string(Text)}}},
     messages(Messages, [Contents, Head | Acc]).
 
 

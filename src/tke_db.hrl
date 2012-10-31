@@ -1,2 +1,2 @@
 -record(issue, {id, title, status, owner, summary, ctime, tags}).
--record(message, {id, issue, author, ctime, contents}).
+-record(message, {id, issue, author, ctime, text, file, diff}).

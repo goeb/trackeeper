@@ -131,7 +131,6 @@ http_post([Project, "issue", N], Multipart_data) ->
             I3 = [{id, Id} | I2]
     end,
     {ok, Id4} = tke_db:update(Project, issue, I3),
-    % TODO add message in database
     log:debug("Id4=~p", [Id4]),
     case N of
         "new" ->
