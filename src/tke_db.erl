@@ -27,8 +27,14 @@
 -export([get/3, update/3, search/3]).
 
 -include("tke_db.hrl").
--record(project, {name, issues, messages, structure}).
-%% contents is either: {file, Filename} | {text, Text} | {change, [{Field, Old, New]}
+-record(project, {name, issues, messages, history, structure}).
+-record(history, {id, issue, author, ctime, action}).
+
+% action = [{add_message, 34},
+%           {delete_message, 434}, 
+%           {add_file, 2},
+%           {delete_file, 2},
+%           {change_field, {Old, New}},
 
 %% API -------------------
 
@@ -66,11 +72,12 @@ registered_name(Project) ->
 init(Project) ->
     log:debug("Loading project ~p", [Project]),
     % TODO load from disk and populate an ets table
-    {Issues, Messages, Structure} = load(Project),
+    {Issues, Messages, History, Structure} = load(Project),
     log:debug("Loading project ~p completed", [Project]),
     {ok, #project{name=Project,
                   issues=Issues,
                   messages=Messages,
+                  history=History,
                   structure=Structure}}.
 
 handle_call({get, issue, empty}, _From, Ctx) ->
@@ -180,8 +187,9 @@ load(Project) ->
     Structure = load_project_file(Project),
     Issue_table = ets:new(issue,[private, {keypos, 2}]),
     Message_table = ets:new(message,[private, {keypos, 2}]),
-    load_issues(Project, Issue_table, Message_table),
-    {Issue_table, Message_table, Structure}.
+    History_table = ets:new(history,[private, {keypos, 2}]),
+    load_issues(Project, Issue_table, Message_table, History_table),
+    {Issue_table, Message_table, History_table, Structure}.
 
 load_project_file(Project) ->
     File = Project ++ "/project",
@@ -189,23 +197,23 @@ load_project_file(Project) ->
     Term = decode_contents(Binary),
     Term.
 
-load_issues(Project, Issue_table, Message_table) ->
+load_issues(Project, Issue_table, Message_table, History) ->
     {ok, Files} = file:list_dir(Project),
     Dirs = [Project ++ "/" ++ File || File <- Files],
-    load_issues_from_dirs(Dirs, Issue_table, Message_table).
+    load_issues_from_dirs(Dirs, Issue_table, Message_table, History).
 
-load_issues_from_dirs([], _Issue_table, _Message_table) -> ok;
-load_issues_from_dirs([Dir | Others], Issue_table, Message_table) ->
+load_issues_from_dirs([], _Issues, _Messages, _History) -> ok;
+load_issues_from_dirs([Dir | Others], Issues, Messages, History) ->
     File = Dir ++ "/issue",
     case file:read_file(File) of
         {error, _Reason} -> ok;
         {ok, Binary} ->
             Term = decode_contents(Binary),
-            ets:insert(Issue_table, Term)
+            ets:insert(Issues, Term)
             %log:debug("Issue ~p loaded.", [File])
     end,
-    load_messages(Dir, Message_table),
-    load_issues_from_dirs(Others, Issue_table, Message_table).
+    load_messages_and_history(Dir, Messages, History),
+    load_issues_from_dirs(Others, Issues, Messages, History).
 
 decode_contents(Binary) ->
     S = binary_to_list(Binary),
@@ -213,36 +221,46 @@ decode_contents(Binary) ->
     {ok, Term} = erl_parse:parse_term(Tokens),
     Term.
 
-load_messages(Dir, Message_table) -> 
-    %log:debug("load_messages(~p)", [Dir]),
+load_messages_and_history(Dir, Messages, History) -> 
     case file:list_dir(Dir) of
-        {ok, Files} -> load_messages_from_files(Dir, Files, Message_table);
+        {ok, Files} -> load_from_files(Dir, Files, Messages, History);
         {error, _Reason} -> ok
     end.
 
-load_messages_from_files(_Dir, [], _Message_table) -> ok;
+%% Messages = ETS table containing messages
+%% History = ETS table containing history events
+load_from_files(_Dir, [], _Messages, _History) -> ok;
 % Consider files starting with "msg."
-load_messages_from_files(Dir, [[$m, $s, $g, $. | Id]|Others], Message_table) ->
+load_from_files(Dir, [[$m, $s, $g, $. | Id] | Others], Messages, His) ->
     File = Dir ++ "/msg." ++ Id,
     %log:debug("Message ~p", [File]),
     case file:read_file(File) of
         {error, _Reason} -> log:debug("Message ~p rejected", [File]);
         {ok, Binary} ->
             Term = decode_contents(Binary),
-            case merge_to_record(message, Term) of
+            case merge_to_record(message, Term) of % TODO is this really useful?
                 {error, Reason} -> log:error("Cannot load message ~p: ~p",
                                              [Id, Reason]);
-                {ok, T} -> ets:insert(Message_table, T)
+                {ok, T} -> ets:insert(Messages, T)
             end
-            % TODO if Term != T, the sync on th disk
-            % (record structure has changed)
-            %log:debug("Message ~p loaded.", [File])
     end,
-    load_messages_from_files(Dir, Others, Message_table);
+    load_from_files(Dir, Others, Messages, His);
+
+%% Load History
+load_from_files(Dir, [[$h, $i, $s, $. | Id] | Others], Messages, History) ->
+    File = Dir ++ "/his." ++ Id,
+    case file:read_file(File) of
+        {error, _Reason} -> log:debug("History ~p rejected", [File]);
+        {ok, Binary} ->
+            Term = decode_contents(Binary),
+            ets:insert(History, Term)
+    end,
+    load_from_files(Dir, Others, Messages, History);
+
 % other files, not starting with "msg."
-load_messages_from_files(Dir, [_F|Others], Message_table) ->
-    %log:debug("Message ~p (2)", [_F]),
-    load_messages_from_files(Dir, Others, Message_table).
+load_from_files(Dir, [_F | Others], Messages, History) ->
+    load_from_files(Dir, Others, Messages, History).
+
 
 
 %% write to disk what has been modified
