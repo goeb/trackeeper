@@ -113,14 +113,6 @@ handle_call({update, Issue}, _From, Ctx) ->
     % now add the message
     add_message(Id, Issue, Ctx),
     {reply, {ok, Id}, Ctx};
-%% create new message
-handle_call({update, message, Message}, _From, Ctx) ->
-    M = convert_to_record(message, Message),
-    New_id = get_new_id(Ctx#project.messages),
-    M2 = M#message{id=New_id},
-    ets:insert(Ctx#project.messages, M2),
-    sync(Ctx, M2),
-    {reply, {ok, M2}, Ctx};
 
 % Search : proplist
 %   key 'columns' : list of columns needed in the return value
@@ -289,11 +281,6 @@ convert_to_proplist(Ctx, I) when element(1, I) == issue ->
 convert_to_proplist(_Ctx, M = #message{}) ->
     lists:zip(record_info(fields, message), tl(tuple_to_list(M))).
 
-% Message or Issue = proplist()
-convert_to_record(message, M) ->
-    Keys = record_info(fields, message),
-    convert_to_record(Keys, M, [message]).
-
 convert_to_record([], _Proplist, Record) ->
     list_to_tuple(lists:reverse(Record));
 convert_to_record([Key | Others], Proplist, Record) ->
@@ -323,16 +310,21 @@ sort(_I_list, _Sort) -> todo.
 %% Ctx : context of the server    
 add_message(Issue_id, Message, Ctx) ->
     Text = proplists:get_value(message, Message),
+    Text_stripped = string:strip(Text),
     %% TODO File = proplists:get_value(file, Message),
     TS = os:timestamp(),
     Timestamp = calendar:now_to_universal_time(TS),
     % TODO author
     Id = get_new_id(Ctx#project.messages),
     M = #message{id=Id, issue=Issue_id, author="John Doe", ctime=Timestamp,
-             text=Text},
+             text=Text_stripped},
 
-    ets:insert(Ctx#project.messages, M),
-    sync(Ctx, M),
+    case Text_stripped of 
+        "" -> ok;
+        Text_stripped ->
+            ets:insert(Ctx#project.messages, M),
+            sync(Ctx, M)
+    end,
     ok.
 
 %% Term = tuple()
