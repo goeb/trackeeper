@@ -96,15 +96,32 @@ messages([M | Messages], Acc) ->
     Date = proplists:get_value(ctime, M),
     Id = proplists:get_value(id, M),
     Text = proplists:get_value(text, M, "no text"),
+    Diff = proplists:get_value(diff, M),
     Head = {tr, [], [
             {th, [], "msg." ++ to_string(Id)},
             {th, [], "Author: " ++ to_string(Author)},
             {th, [], "Date: " ++ date_to_string(Date)},
             {th, [], "Bouton DELETE"}
         ]},
-    Contents = {tr, [], {td, [{colspan, "4"}, {class, "content"}],
-            {pre, [], to_string(Text)}}},
-    messages(Messages, [Contents, Head | Acc]).
+    case Text of
+        "" -> Contents = [];
+        _Else ->
+            Contents = {tr, [], {td, [{colspan, "4"}, {class, "content"}],
+                                 {pre, [], to_string(Text)}}}
+    end,
+    Diff_ehtml = print_diff(Diff, []),
+    messages(Messages, [Contents, Diff_ehtml, Head | Acc]).
+
+%% Diff = [{Old, New}]
+print_diff(undefined, []) -> [];
+print_diff([], Acc) ->
+    {tr, [], {td, [{colspan, "4"}, {class, "diff"}],
+              string:join(Acc, ", ")}};
+print_diff([{Old_value, New_value} | Rest_diff], Acc) ->
+    Text = to_string(Old_value) ++ " -> " ++ to_string(New_value),
+    print_diff(Rest_diff, [Text | Acc]).
+
+
 
 
 %% HTML for edition of field (<input>)

@@ -105,13 +105,23 @@ handle_call({update, Issue}, _From, Ctx) ->
             Id = Id0,
             Issue3 = Issue
     end,
-    % add
+    % convert proplist to entry (~ record)
     I = convert_to_entry(Ctx, issue, Issue3),
+
+    % make the diff (the summary of changes)
+    case Id0 of
+        undefined -> Diff = [];
+        _Else ->
+            [Old_issue] = ets:lookup(Ctx#project.issues, Id0),
+            Diff = make_diff(tuple_to_list(Old_issue), tuple_to_list(I), []),
+            log:debug("Diff: ~p", [Diff])
+    end,
+
     ets:insert(Ctx#project.issues, I),
     log:debug("going to sync..."),
     sync(Ctx, I),
     % now add the message
-    add_message(Id, Issue, Ctx),
+    add_message(Id, Issue, Diff, Ctx),
     {reply, {ok, Id}, Ctx};
 
 % Search : proplist
@@ -307,8 +317,9 @@ sort(_I_list, _Sort) -> todo.
 
 %% Issue_id : id of related issue
 %% Message = proplists() (contains also Issue info, but not needed here)
+%% Diff = [{Tag, {Old, New]]} = Things of the issue that have changed 
 %% Ctx : context of the server    
-add_message(Issue_id, Message, Ctx) ->
+add_message(Issue_id, Message, Diff, Ctx) ->
     Text = proplists:get_value(message, Message),
     Text_stripped = string:strip(Text),
     %% TODO File = proplists:get_value(file, Message),
@@ -316,12 +327,16 @@ add_message(Issue_id, Message, Ctx) ->
     Timestamp = calendar:now_to_universal_time(TS),
     % TODO author
     Id = get_new_id(Ctx#project.messages),
-    M = #message{id=Id, issue=Issue_id, author="John Doe", ctime=Timestamp,
-             text=Text_stripped},
+    M = #message{id=Id,
+                 issue=Issue_id,
+                 author="John Doe",
+                 ctime=Timestamp,
+                 text=Text_stripped,
+                 diff=Diff},
 
-    case Text_stripped of 
-        "" -> ok;
-        Text_stripped ->
+    case (Text_stripped == "") and (Diff == []) of 
+        true -> ok; % do not insert message in base (nothing has changed)
+        _Else ->
             ets:insert(Ctx#project.messages, M),
             sync(Ctx, M)
     end,
@@ -380,5 +395,18 @@ get_value(_Atom, _Columns = [], _Values = []) -> undefined;
 get_value(Atom, [Atom | _Other_columns], [Value | _Other_values]) -> Value;
 get_value(Atom, [_Col | Other_columns], [_Value | Other_values]) ->
     get_value(Atom, Other_columns, Other_values).
+
+
+%% Make a diff of what changed between old and new issue
+%% result is a proplists:
+%% [{Key, {Old, New}}]
+make_diff([], [], Acc) -> lists:reverse(Acc);
+make_diff([Old_value | Rest_old], [New_value | Rest_new], Acc) ->
+    case Old_value == New_value of
+        true -> % no change
+            make_diff(Rest_old, Rest_new, Acc);
+        _Else -> % there is a change
+            make_diff(Rest_old, Rest_new, [{Old_value,  New_value} | Acc])
+    end.
 
 

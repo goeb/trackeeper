@@ -250,10 +250,6 @@ table.messages td {
   padding: 2px 5px 2px 5px;
 }
 
-table.messages td:first-child {
-  border-left: 1px solid #afafaf;
-  border-right: 1px solid #afafaf;
-}
 
 /* style for file displays */
 table.files {
@@ -439,3 +435,6 @@ textarea:focus, select:focus {
 */
 /* SHA: a04232a326156d381a782cccb31d6d3948546227 */
 
+.diff {
+    color: grey;
+}
