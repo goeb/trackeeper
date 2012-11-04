@@ -24,7 +24,7 @@
 -export([init/1, handle_call/3, handle_cast/2]).
 -export([code_change/3, handle_info/2, terminate/2]).
 
--export([get/3, update/3, search/3, get_empty_issue/0]).
+-export([get/3, update/3, search/3, get_empty_issue/1]).
 
 -include("tke_db.hrl").
 -record(project, {name, issues, messages}).
@@ -54,8 +54,10 @@ search(Project, Table, Search) ->
     gen_server:call(list_to_atom(Project), {search, Table, Search}).
 
 %% Return proplists of issue, with all fields undefined
-get_empty_issue() ->
-    I = #issue{},
+get_empty_issue(Project) ->
+    Cols = get_columns(Project, issue),
+    Values = lists:duplicate(length(Cols), undefined),
+    I = list_to_tuple([issue | Values]), 
     convert_to_proplist(I).
 
 
@@ -89,14 +91,19 @@ handle_call({update, Issue}, _From, Ctx) ->
     Id0 = proplists:get_value(id, Issue),
     % TODO the diff of the issue wrt. to previous value
     case Id0 of 
-        undefined -> Id = get_new_id(Ctx#project.issues);
-        Id0 -> Id = Id0
+        undefined ->
+            Id = get_new_id(Ctx#project.issues),
+            Issue2 = proplists:delete(id, Issue), % replace id
+            Issue3 = [{id, Id} | Issue2];
+        Id0 ->
+            Id = Id0,
+            Issue3 = Issue
     end,
-    I2 = convert_to_record(issue, Issue),
-    I3 = I2#issue{id=Id},
-    ets:insert(Ctx#project.issues, I3),
+    % add
+    I = convert_to_entry(Ctx#project.name, issue, Issue3),
+    ets:insert(Ctx#project.issues, I),
     log:debug("going to sync..."),
-    sync(Ctx#project.name, I3),
+    sync(Ctx#project.name, I),
     % now add the message
     add_message(Id, Issue, Ctx),
     {reply, {ok, Id}, Ctx};
@@ -110,18 +117,20 @@ handle_call({update, message, Message}, _From, Ctx) ->
     {reply, {ok, M2}, Ctx};
 
 % Search : proplist
-%   key columns : list of columns needed in the return value
-%   key pattern : pattern for selective search TODO
+%   key 'columns' : list of columns needed in the return value
+%   key 'pattern' : pattern for selective search TODO
 handle_call({search, issue, Search}, _From, Ctx) ->
     log:debug("search issue: Search=~p", [Search]),
     % for now, return the list of all issues
-    Pattern = #issue{_ = '_'},
+    % TODO filter
+    Pattern_l = lists:duplicate(length(get_columns(Ctx#project.name, issue)), '_'),
+    Pattern = list_to_tuple([issue | Pattern_l]),
     Issues = ets:match_object(Ctx#project.issues, Pattern),
     I_list = [convert_to_proplist(I) || I <- Issues],
     % now keep only the needed columns
     Columns = proplists:get_value(columns, Search),
     case Columns of
-        all -> Needed_columns = record_info(fields, issue);
+        all -> Needed_columns = get_columns(Ctx#project.name, issue);
         Needed_columns -> ok
     end,
 
@@ -215,9 +224,9 @@ load_messages_from_files(Dir, [_F|Others], Message_table) ->
 
 
 %% write to disk what has been modified
-sync(Project, I = #issue{}) -> 
+sync(Project, I) when element(1, I) == issue -> 
     log:debug("syncing..."),
-    Id = integer_to_list(I#issue.id),
+    Id = integer_to_list(get_value(Project, issue, id, I)),
     Dirname = Project ++ "/" ++ Id,
     file:make_dir(Dirname),
     Filename = Dirname ++ "/issue",
@@ -255,24 +264,27 @@ get_max_id(Table, Key, N) ->
     end,
     get_max_id(Table, ets:next(Table, Key), Max).
 
-convert_to_proplist(I = #issue{}) ->
-    lists:zip(record_info(fields, issue), tl(tuple_to_list(I)));
+convert_to_proplist(I) when element(1, I) == issue ->
+    lists:zip(get_columns(xxx, issue), tl(tuple_to_list(I)));
 convert_to_proplist(M = #message{}) ->
     lists:zip(record_info(fields, message), tl(tuple_to_list(M))).
 
 % Message or Issue = proplist()
 convert_to_record(message, M) ->
     Keys = record_info(fields, message),
-    convert_to_record(Keys, M, [message]);
-convert_to_record(issue, I) ->
-    Keys = record_info(fields, issue),
-    convert_to_record(Keys, I, [issue]).
+    convert_to_record(Keys, M, [message]).
 
 convert_to_record([], _Proplist, Record) ->
     list_to_tuple(lists:reverse(Record));
 convert_to_record([Key | Others], Proplist, Record) ->
     Value = proplists:get_value(Key, Proplist),
     convert_to_record(Others, Proplist, [Value|Record]).
+
+%% Project = list(char)  = Name of project
+%% I       = proplists() = Issue to be converted
+convert_to_entry(Project, issue, I) ->
+    Keys = get_columns(Project, issue),
+    convert_to_record(Keys, I, [issue]).
 
 sort(I_list, undefined) -> I_list;
 %% Sort = list(atom())
@@ -303,6 +315,7 @@ add_message(Issue_id, Message, Ctx) ->
     sync(Ctx#project.name, M),
     ok.
 
+%% Term = tuple()
 merge_to_record(message, Term) ->
     case element(1, Term) of
         message -> 
@@ -316,14 +329,31 @@ merge_to_record(message, Term) ->
         _Other -> {error, "Not a message structure"}
     end.
 
-delete_elements(Tuple, 0) -> Tuple;
-delete_elements(Tuple, N) ->
+delete_elements(Tuple, 0) when is_tuple(Tuple) -> Tuple;
+delete_elements(Tuple, N) when is_tuple(Tuple) ->
     List = tuple_to_list(Tuple),
-    Size = size(List),
+    Size = length(List),
     L2 = lists:sublist(List, 1, Size - N),
     list_to_tuple(L2).
 
 add_elements(Tuple, 0) -> Tuple;
 add_elements(Tuple, N) ->
     add_elements(erlang:append_element(Tuple, undefined), N-1).
+
+%% Stucture of table issue
+%% Columns are read from file <project-dir>/project
+get_columns(_Project, issue) ->
+    [id, title, status, owner, summary, ctime, tags].
+
+
+get_value(Project, issue, id, I) ->
+    Columns = get_columns(Project, issue),
+    [issue | Values] = tuple_to_list(I),
+    get_value(id, Columns, Values).
+
+get_value(_Atom, _Columns = [], _Values = []) -> undefined;
+get_value(Atom, [Atom | _Other_columns], [Value | _Other_values]) -> Value;
+get_value(Atom, [_Col | Other_columns], [_Value | Other_values]) ->
+    get_value(Atom, Other_columns, Other_values).
+
 
