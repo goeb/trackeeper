@@ -8,7 +8,7 @@
 start() ->
     io:format("~p starting...\n", [ ?MODULE ]),
     tke_db:start("tke"),
-    tke_db:start("simpleP"),
+    %tke_db:start("simpleP"),
     spawn(?MODULE, loop, []),
     ok.
 
@@ -88,7 +88,7 @@ show_issue(Project, N, _Query) ->
     Html.
 
 new_issue(Project, _Query) ->
-    tke_html:show_issue(Project, tke_db:get_empty_issue(Project), []).
+    tke_html:show_issue(Project, tke_db:get(Project, issue, empty), []).
 
 
 % make a proplist from the query string

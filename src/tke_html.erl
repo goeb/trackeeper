@@ -163,7 +163,7 @@ edition_message() ->
                   {textarea, [
                           {name, message},
                           {wrap, "hard"}, {rows, "10"}, {cols, "80"}
-                      ], "Enter your message"}
+                      ], ""}
               }]
       }.
 

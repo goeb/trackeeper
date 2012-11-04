@@ -20,67 +20,73 @@
 -module(tke_db).
 -behaviour(gen_server).
 
--export([start/1, stop/0]).
+-export([start/1, stop/1]).
 -export([init/1, handle_call/3, handle_cast/2]).
 -export([code_change/3, handle_info/2, terminate/2]).
 
--export([get/3, update/3, search/3, get_empty_issue/1]).
+-export([get/3, update/3, search/3]).
 
 -include("tke_db.hrl").
--record(project, {name, issues, messages}).
+-record(project, {name, issues, messages, structure}).
 %% contents is either: {file, Filename} | {text, Text} | {change, [{Field, Old, New]}
 
 %% API -------------------
 
 % start as many processes as there are projects in the directory
 start(Project) ->
-    gen_server:start_link({local, list_to_atom(Project)}, tke_db, Project, []).
+    gen_server:start_link({local, registered_name(Project)},
+                          tke_db, Project, []).
 
-stop() -> gen_server:cast(tke, stop).
-    
+stop(Project) -> gen_server:cast(registered_name(Project), stop).
+
 %% Project = atom() | list()
 %% Table = issue | message
 get(Project, Table, N) when is_list(Project) ->
-    gen_server:call(list_to_atom(Project), {get, Table, N}).
+    gen_server:call(registered_name(Project), {get, Table, N}).
 
 %% if new issue, then create and return id.
 %% if existing issue, then update
 %% Issue contains the message
 update(Project, issue, Issue) ->
     log:debug("update0: "),
-    gen_server:call(list_to_atom(Project), {update, Issue}).
+    gen_server:call(registered_name(Project), {update, Issue}).
 
 search(Project, Table, Search) ->
-    gen_server:call(list_to_atom(Project), {search, Table, Search}).
-
-%% Return proplists of issue, with all fields undefined
-get_empty_issue(Project) ->
-    Cols = get_columns(Project, issue),
-    Values = lists:duplicate(length(Cols), undefined),
-    I = list_to_tuple([issue | Values]), 
-    convert_to_proplist(I).
+    gen_server:call(registered_name(Project), {search, Table, Search}).
 
 
 %% Internals -------------------
+
+
+registered_name(Project) ->
+    list_to_atom("tke_" ++ Project).
+    
 
 %% Project = list(char)
 init(Project) ->
     log:debug("Loading project ~p", [Project]),
     % TODO load from disk and populate an ets table
-    {Issues, Messages} = load(Project),
+    {Issues, Messages, Structure} = load(Project),
     log:debug("Loading project ~p completed", [Project]),
-    {ok, #project{name=Project, issues=Issues, messages=Messages}}.
+    {ok, #project{name=Project,
+                  issues=Issues,
+                  messages=Messages,
+                  structure=Structure}}.
 
+handle_call({get, issue, empty}, _From, Ctx) ->
+    E = get_empty_issue(Ctx),
+    log:debug("get_empty_issue: returned ~p", [E]),
+    {reply, E, Ctx};
 handle_call({get, issue, N}, _From, Ctx) ->
     case ets:lookup(Ctx#project.issues, N) of
-        [I0] -> I = convert_to_proplist(I0);
+        [I0] -> I = convert_to_proplist(Ctx, I0);
         [] -> I = undefined
     end,
     {reply, I, Ctx};
 handle_call({get, message, N}, _From, Ctx) ->
     case ets:lookup(Ctx#project.messages, N) of
         [M0] -> %log:debug("found message ~p", [M0]),
-            M = convert_to_proplist(M0);
+            M = convert_to_proplist(Ctx, M0);
         [] -> M = undefined
     end,
     {reply, M, Ctx};
@@ -100,10 +106,10 @@ handle_call({update, Issue}, _From, Ctx) ->
             Issue3 = Issue
     end,
     % add
-    I = convert_to_entry(Ctx#project.name, issue, Issue3),
+    I = convert_to_entry(Ctx, issue, Issue3),
     ets:insert(Ctx#project.issues, I),
     log:debug("going to sync..."),
-    sync(Ctx#project.name, I),
+    sync(Ctx, I),
     % now add the message
     add_message(Id, Issue, Ctx),
     {reply, {ok, Id}, Ctx};
@@ -113,7 +119,7 @@ handle_call({update, message, Message}, _From, Ctx) ->
     New_id = get_new_id(Ctx#project.messages),
     M2 = M#message{id=New_id},
     ets:insert(Ctx#project.messages, M2),
-    sync(Ctx#project.name, M2),
+    sync(Ctx, M2),
     {reply, {ok, M2}, Ctx};
 
 % Search : proplist
@@ -123,14 +129,14 @@ handle_call({search, issue, Search}, _From, Ctx) ->
     log:debug("search issue: Search=~p", [Search]),
     % for now, return the list of all issues
     % TODO filter
-    Pattern_l = lists:duplicate(length(get_columns(Ctx#project.name, issue)), '_'),
+    Pattern_l = lists:duplicate(length(get_columns(Ctx, issue)), '_'),
     Pattern = list_to_tuple([issue | Pattern_l]),
     Issues = ets:match_object(Ctx#project.issues, Pattern),
-    I_list = [convert_to_proplist(I) || I <- Issues],
+    I_list = [convert_to_proplist(Ctx, I) || I <- Issues],
     % now keep only the needed columns
     Columns = proplists:get_value(columns, Search),
     case Columns of
-        all -> Needed_columns = get_columns(Ctx#project.name, issue);
+        all -> Needed_columns = get_columns(Ctx, issue);
         Needed_columns -> ok
     end,
 
@@ -145,8 +151,15 @@ handle_call({search, message, Issue_id}, _From, Ctx) ->
     Pattern = #message{issue=Issue_id, _ = '_'},
     log:debug("search ~p", [Pattern]),
     Messages = ets:match_object(Ctx#project.messages, Pattern),
-    Mlist = [convert_to_proplist(M) || M <- Messages],
+    Mlist = [convert_to_proplist(Ctx, M) || M <- Messages],
     {reply, Mlist, Ctx}.
+
+%% Return proplists of issue, with all fields undefined
+get_empty_issue(Ctx) ->
+    Cols = get_columns(Ctx, issue),
+    Values = lists:duplicate(length(Cols), undefined),
+    I = list_to_tuple([issue | Values]), 
+    convert_to_proplist(Ctx, I).
 
 %% List : list of proplists
 %% For each proplist, delete columns that are not mentioned in Columns
@@ -162,10 +175,17 @@ handle_cast(_X, Y) -> {noreply, Y}.
 
 %% File access functions
 load(Project) ->
+    Structure = load_project_file(Project),
     Issue_table = ets:new(issue,[private, {keypos, 2}]),
     Message_table = ets:new(message,[private, {keypos, 2}]),
     load_issues(Project, Issue_table, Message_table),
-    {Issue_table, Message_table}.
+    {Issue_table, Message_table, Structure}.
+
+load_project_file(Project) ->
+    File = Project ++ "/project",
+    {ok, Binary} = file:read_file(File),
+    Term = decode_contents(Binary),
+    Term.
 
 load_issues(Project, Issue_table, Message_table) ->
     {ok, Files} = file:list_dir(Project),
@@ -224,19 +244,19 @@ load_messages_from_files(Dir, [_F|Others], Message_table) ->
 
 
 %% write to disk what has been modified
-sync(Project, I) when element(1, I) == issue -> 
+sync(Ctx, I) when element(1, I) == issue -> 
     log:debug("syncing..."),
-    Id = integer_to_list(get_value(Project, issue, id, I)),
-    Dirname = Project ++ "/" ++ Id,
+    Id = integer_to_list(get_value(Ctx, issue, id, I)),
+    Dirname = Ctx#project.name ++ "/" ++ Id,
     file:make_dir(Dirname),
     Filename = Dirname ++ "/issue",
     sync_file(Filename, I);
 
-sync(Project, M = #message{}) ->
+sync(Ctx, M = #message{}) ->
     log:debug("syncing message: ~p", [M]),
     Issue = integer_to_list(M#message.issue),
     Id = integer_to_list(M#message.id),
-    Dirname = Project ++ "/" ++ Issue,
+    Dirname = Ctx#project.name ++ "/" ++ Issue,
     Filename = Dirname ++ "/msg." ++ Id,
     sync_file(Filename, M).
 
@@ -264,9 +284,9 @@ get_max_id(Table, Key, N) ->
     end,
     get_max_id(Table, ets:next(Table, Key), Max).
 
-convert_to_proplist(I) when element(1, I) == issue ->
-    lists:zip(get_columns(xxx, issue), tl(tuple_to_list(I)));
-convert_to_proplist(M = #message{}) ->
+convert_to_proplist(Ctx, I) when element(1, I) == issue ->
+    lists:zip(get_columns(Ctx, issue), tl(tuple_to_list(I)));
+convert_to_proplist(_Ctx, M = #message{}) ->
     lists:zip(record_info(fields, message), tl(tuple_to_list(M))).
 
 % Message or Issue = proplist()
@@ -282,8 +302,8 @@ convert_to_record([Key | Others], Proplist, Record) ->
 
 %% Project = list(char)  = Name of project
 %% I       = proplists() = Issue to be converted
-convert_to_entry(Project, issue, I) ->
-    Keys = get_columns(Project, issue),
+convert_to_entry(Ctx, issue, I) ->
+    Keys = get_columns(Ctx, issue),
     convert_to_record(Keys, I, [issue]).
 
 sort(I_list, undefined) -> I_list;
@@ -312,7 +332,7 @@ add_message(Issue_id, Message, Ctx) ->
              text=Text},
 
     ets:insert(Ctx#project.messages, M),
-    sync(Ctx#project.name, M),
+    sync(Ctx, M),
     ok.
 
 %% Term = tuple()
@@ -341,13 +361,26 @@ add_elements(Tuple, N) ->
     add_elements(erlang:append_element(Tuple, undefined), N-1).
 
 %% Stucture of table issue
-%% Columns are read from file <project-dir>/project
-get_columns(_Project, issue) ->
-    [id, title, status, owner, summary, ctime, tags].
+%% Columns are read from file <project-dir>/project and stored in Ctx
+get_columns(Ctx, issue) ->
+    T = proplists:get_value(tables, Ctx#project.structure),
+    Issue_table = proplists:get_value(issue, T),
+    Columns = proplists:get_value(columns, Issue_table),
+    get_ordered_keys(Columns, []).
 
+%% Return the ordered list of keys of the given proplist.
+%% This is not available from the proplists module
+%% as proplists:get_keys/1 returns an unordered list.
+get_ordered_keys([], Acc) -> lists:reverse(Acc);
+get_ordered_keys([Atom | Rest], Acc) when is_atom(Atom) ->
+    get_ordered_keys(Rest, [Atom | Acc]);    
+get_ordered_keys([{Atom, _Value} | Rest], Acc) when is_atom(Atom) ->
+    get_ordered_keys(Rest, [Atom | Acc]);
+get_ordered_keys([_X | Rest], Acc) -> % ignore other cases
+    get_ordered_keys(Rest, Acc).
 
-get_value(Project, issue, id, I) ->
-    Columns = get_columns(Project, issue),
+get_value(Ctx, issue, id, I) ->
+    Columns = get_columns(Ctx, issue),
     [issue | Values] = tuple_to_list(I),
     get_value(id, Columns, Values).
 

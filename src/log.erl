@@ -11,7 +11,9 @@ info(Format, Args) -> log("INFO", Format, Args).
 info(Format) -> info(Format, []).
 
 log(Level, Format, Args) ->
-    io:format(get_timestamp() ++ " " ++ Level ++ " " ++ Format ++ "\n", Args).
+    Pid = io_lib:format("~p", [self()]),
+    io:format(get_timestamp() ++ " " ++ Pid ++ " " ++ Level ++ " "
+        ++ Format ++ "\n", Args).
 
 debug(Format) -> debug(Format, []).
 debug(Format, Args) -> log("DEBUG", Format, Args).
