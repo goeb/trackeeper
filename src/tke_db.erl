@@ -292,7 +292,7 @@ sort(_I_list, _Sort) -> todo.
 add_message(Issue_id, Message, Ctx) ->
     Text = proplists:get_value(message, Message),
     %% TODO File = proplists:get_value(file, Message),
-    TS = {_,_,_Micro} = os:timestamp(),
+    TS = os:timestamp(),
     Timestamp = calendar:now_to_universal_time(TS),
     % TODO author
     Id = get_new_id(Ctx#project.messages),
