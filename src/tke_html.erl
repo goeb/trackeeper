@@ -31,7 +31,13 @@ to_string(X) when is_binary(X) -> binary_to_list(X);
 to_string(X) when is_integer(X) -> [R] = io_lib:format("~B", [X]), R;
 to_string(X) when is_float(X) -> [R] = io_lib:format("~.2f", [X]), R;
 to_string(null) -> "(null)";
-to_string(undefined) -> "(undefined)".
+to_string(undefined) -> "(undefined)";
+to_string(X) -> io_lib:format("~s", [X]).
+
+to_action_string([], Str) -> Str;
+to_action_string(new, _Str) -> "create";
+to_action_string([{Old, New} | Rest], Str) ->
+    to_action_string(Rest, Str ++ " " ++ Old ++ " -> " ++ New ++ "<br>\n").
 
 format_cell(undefined, Column_name, _Column_value) -> atom_to_list(Column_name);
 format_cell(Rowid, title, Column_value) ->
@@ -122,10 +128,12 @@ history([H | History], Acc) ->
     Author = proplists:get_value(author, H),
     Ctime = proplists:get_value(ctime, H),
     Action = proplists:get_value(action, H),
+    Action_str = to_action_string(Action, ""),
+    log:debug("Action_str=~p", [Action_str]),
     Contents = {tr, [], [
             {td, [], date_to_string(Ctime)},
             {td, [], to_string(Author)},
-            {td, [], to_string(Action)}
+            {td, [], Action_str}
         ]},
     history(History, [Contents | Acc]).
 

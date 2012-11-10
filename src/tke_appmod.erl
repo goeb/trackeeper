@@ -86,6 +86,7 @@ show_issue(Project, N, _Query) ->
         undefined -> Html = no_resource(Project);
         I -> Html = tke_html:show_issue(Project, I, M, H)
     end,
+    log:debug("Html=~p", [Html]),
     Html.
 
 new_issue(Project, _Query) ->

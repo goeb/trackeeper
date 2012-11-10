@@ -125,19 +125,20 @@ handle_call({update, Issue}, _From, Ctx) ->
             log:debug("Diff: ~p", [Diff])
     end,
 
+    Timestamp = get_timestamp(),
     case Diff of 
         [] -> % nothing new. do not update anything
             log:debug("nothing updated");
         Diff -> 
             ets:insert(Ctx#project.issues, I),
             log:debug("going to sync..."),
-            sync(Ctx, I)
+            sync(Ctx, I),
+            % add history log
+            add_history(Id, Diff, Timestamp, Ctx)
     end,
     % now add the message
-    add_message(Id, Issue, Ctx),
+    add_message(Id, Issue, Timestamp, Ctx),
 
-    % add history log
-    % TODO
     {reply, {ok, Id}, Ctx};
 
 % Search : proplist
@@ -298,7 +299,16 @@ sync(Ctx, M = #message{}) ->
     Id = integer_to_list(M#message.id),
     Dirname = Ctx#project.name ++ "/" ++ Issue,
     Filename = Dirname ++ "/msg." ++ Id,
-    sync_file(Filename, M).
+    sync_file(Filename, M);
+
+sync(Ctx, H = #history{}) ->
+    log:debug("syncing history: ~p", [H]),
+    Issue = integer_to_list(H#history.issue),
+    Id = integer_to_list(H#history.id),
+    Dirname = Ctx#project.name ++ "/" ++ Issue,
+    Filename = Dirname ++ "/his." ++ Id,
+    sync_file(Filename, H).
+
 
 sync_file(Filename, Data) ->
     Str = io_lib:format("~p.", [Data]),
@@ -355,17 +365,16 @@ sort(I_list, [Col]) ->
 %% TODO multi-column  sorting
 sort(_I_list, _Sort) -> todo.
 
+get_timestamp() ->
+    TS = os:timestamp(),
+    calendar:now_to_universal_time(TS).
 
 %% Issue_id : id of related issue
 %% Message = proplists() (contains also Issue info, but not needed here)
 %% Ctx : context of the server    
-add_message(Issue_id, Message, Ctx) ->
+add_message(Issue_id, Message, Timestamp, Ctx) ->
     Text = proplists:get_value(message, Message),
     Text_stripped = string:strip(Text),
-    %% TODO File = proplists:get_value(file, Message),
-    TS = os:timestamp(),
-    Timestamp = calendar:now_to_universal_time(TS),
-    % TODO author
     Id = get_new_id(Ctx#project.messages),
     M = #message{id=Id,
                  issue=Issue_id,
@@ -381,6 +390,18 @@ add_message(Issue_id, Message, Ctx) ->
             sync(Ctx, M)
     end,
     ok.
+
+add_history(_Issue_id, [], _Timestamp, _Ctx) -> ok; % no diff, then do nothing
+add_history(Issue_id, Diff, Timestamp, Ctx) ->
+    Id = get_new_id(Ctx#project.history),
+    H = #history{id=Id,
+                 issue=Issue_id,
+                 author="John Doe", % TODO
+                 ctime=Timestamp,
+                 action=Diff},
+    ets:insert(Ctx#project.history, H),
+    sync(Ctx, H).
+
 
 %% Term = tuple()
 merge_to_record(message, Term) ->
