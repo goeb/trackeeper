@@ -81,9 +81,10 @@ show_issue(Project, N, _Query) ->
     I = tke_db:get(Project, issue, Issue_id),
     Id = proplists:get_value(id, I),
     M = tke_db:search(Project, message, Id),
+    H = tke_db:search(Project, history, Id),
     case I of
         undefined -> Html = no_resource(Project);
-        I -> Html = tke_html:show_issue(Project, I, M)
+        I -> Html = tke_html:show_issue(Project, I, M, H)
     end,
     Html.
 

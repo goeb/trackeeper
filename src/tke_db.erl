@@ -30,7 +30,8 @@
 -record(project, {name, issues, messages, history, structure}).
 -record(history, {id, issue, author, ctime, action}).
 
-% action = [{add_message, 34},
+% action = [new_issue,
+%           {add_message, 34},
 %           {delete_message, 434}, 
 %           {add_file, 2},
 %           {delete_file, 2},
@@ -117,18 +118,26 @@ handle_call({update, Issue}, _From, Ctx) ->
 
     % make the diff (the summary of changes)
     case Id0 of
-        undefined -> Diff = [];
+        undefined -> Diff = new;
         _Else ->
             [Old_issue] = ets:lookup(Ctx#project.issues, Id0),
             Diff = make_diff(tuple_to_list(Old_issue), tuple_to_list(I), []),
             log:debug("Diff: ~p", [Diff])
     end,
 
-    ets:insert(Ctx#project.issues, I),
-    log:debug("going to sync..."),
-    sync(Ctx, I),
+    case Diff of 
+        [] -> % nothing new. do not update anything
+            log:debug("nothing updated");
+        Diff -> 
+            ets:insert(Ctx#project.issues, I),
+            log:debug("going to sync..."),
+            sync(Ctx, I)
+    end,
     % now add the message
-    add_message(Id, Issue, Diff, Ctx),
+    add_message(Id, Issue, Ctx),
+
+    % add history log
+    % TODO
     {reply, {ok, Id}, Ctx};
 
 % Search : proplist
@@ -161,7 +170,18 @@ handle_call({search, message, Issue_id}, _From, Ctx) ->
     log:debug("search ~p", [Pattern]),
     Messages = ets:match_object(Ctx#project.messages, Pattern),
     Mlist = [convert_to_proplist(Ctx, M) || M <- Messages],
-    {reply, Mlist, Ctx}.
+    M_list2 = sort(Mlist, [id]),
+    {reply, M_list2, Ctx};
+
+%% Return history of a given issue
+handle_call({search, history, Issue_id}, _From, Ctx) ->
+    Pattern = #history{issue=Issue_id, _ = '_'},
+    log:debug("search ~p", [Pattern]),
+    History = ets:match_object(Ctx#project.history, Pattern),
+    H_list = [convert_to_proplist(Ctx, H) || H <- History],
+    H_list2 = sort(H_list, [id]),
+    {reply, H_list2, Ctx}.
+
 
 %% Return proplists of issue, with all fields undefined
 get_empty_issue(Ctx) ->
@@ -307,7 +327,9 @@ get_max_id(Table, Key, N) ->
 convert_to_proplist(Ctx, I) when element(1, I) == issue ->
     lists:zip(get_columns(Ctx, issue), tl(tuple_to_list(I)));
 convert_to_proplist(_Ctx, M = #message{}) ->
-    lists:zip(record_info(fields, message), tl(tuple_to_list(M))).
+    lists:zip(record_info(fields, message), tl(tuple_to_list(M)));
+convert_to_proplist(_Ctx, H = #history{}) ->
+    lists:zip(record_info(fields, history), tl(tuple_to_list(H))).
 
 convert_to_record([], _Proplist, Record) ->
     list_to_tuple(lists:reverse(Record));
@@ -321,8 +343,9 @@ convert_to_entry(Ctx, issue, I) ->
     Keys = get_columns(Ctx, issue),
     convert_to_record(Keys, I, [issue]).
 
+%% Sort a proplist according to a key
 sort(I_list, undefined) -> I_list;
-%% Sort = list(atom())
+%% Col = atom() = Key used for the sorting of the proplist
 sort(I_list, [Col]) ->
     % less than or equal function
     Lte = fun(A, B) ->
@@ -335,9 +358,8 @@ sort(_I_list, _Sort) -> todo.
 
 %% Issue_id : id of related issue
 %% Message = proplists() (contains also Issue info, but not needed here)
-%% Diff = [{Tag, {Old, New]]} = Things of the issue that have changed 
 %% Ctx : context of the server    
-add_message(Issue_id, Message, Diff, Ctx) ->
+add_message(Issue_id, Message, Ctx) ->
     Text = proplists:get_value(message, Message),
     Text_stripped = string:strip(Text),
     %% TODO File = proplists:get_value(file, Message),
@@ -349,12 +371,12 @@ add_message(Issue_id, Message, Diff, Ctx) ->
                  issue=Issue_id,
                  author="John Doe",
                  ctime=Timestamp,
-                 text=Text_stripped,
-                 diff=Diff},
+                 text=Text_stripped},
 
-    case (Text_stripped == "") and (Diff == []) of 
-        true -> ok; % do not insert message in base (nothing has changed)
-        _Else ->
+    case Text_stripped of 
+        "" -> % do not insert message in base (nothing has changed)
+            log:debug("message not added");
+        Text_stripped ->
             ets:insert(Ctx#project.messages, M),
             sync(Ctx, M)
     end,

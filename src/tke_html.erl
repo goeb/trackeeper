@@ -6,7 +6,7 @@
 
 -module(tke_html).
 
--compile(export_all).
+-compile(export_all). % TODO replace with only needed exports
 
 % Return the ehtml structure for the table of issues
 % The rowid must be present
@@ -96,7 +96,6 @@ messages([M | Messages], Acc) ->
     Date = proplists:get_value(ctime, M),
     Id = proplists:get_value(id, M),
     Text = proplists:get_value(text, M, "no text"),
-    Diff = proplists:get_value(diff, M),
     Head = {tr, [], [
             {th, [], "msg." ++ to_string(Id)},
             {th, [], "Author: " ++ to_string(Author)},
@@ -109,8 +108,27 @@ messages([M | Messages], Acc) ->
             Contents = {tr, [], {td, [{colspan, "4"}, {class, "content"}],
                                  {pre, [], to_string(Text)}}}
     end,
-    Diff_ehtml = print_diff(Diff, []),
-    messages(Messages, [Contents, Diff_ehtml, Head | Acc]).
+    messages(Messages, [Contents, Head | Acc]).
+
+history([], Acc) ->
+    First = {tr, [], {th, [{colspan, "4"}, {class, "header"}], "History"}},
+    Second = {tr, [], [
+                {th, [], "Date"},
+                {th, [], "Author"},
+                {th, [], "Action"}
+            ]},
+    {ehtml, {table, [{class, "history"}], [First, Second|lists:reverse(Acc)]}};
+history([H | History], Acc) ->
+    Author = proplists:get_value(author, H),
+    Ctime = proplists:get_value(ctime, H),
+    Action = proplists:get_value(action, H),
+    Contents = {tr, [], [
+            {td, [], date_to_string(Ctime)},
+            {td, [], to_string(Author)},
+            {td, [], to_string(Action)}
+        ]},
+    history(History, [Contents | Acc]).
+
 
 %% Diff = [{Old, New}]
 print_diff(undefined, []) -> [];
@@ -133,12 +151,13 @@ edition_field(Name, Value) ->
             {type, "text"}, {value, to_string(Value)}], ""}.
 
 % return EHTML for diaplying issue
-show_issue(Project, Issue, Messages) ->
+show_issue(Project, Issue, Messages, History) ->
     log:debug("show_issue..."),
     [   header(Project),
         title_issue(Issue),
         edition_form(Issue),
         messages(Messages, []),
+        history(History, []),
         footer(Project)
     ].
 
