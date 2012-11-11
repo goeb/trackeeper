@@ -90,7 +90,7 @@ show_issue(Project, N, _Query) ->
     Html.
 
 new_issue(Project, _Query) ->
-    tke_html:show_issue(Project, tke_db:get(Project, issue, empty), []).
+    tke_html:show_issue(Project, tke_db:get(Project, issue, empty), [], []).
 
 
 % make a proplist from the query string
