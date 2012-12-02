@@ -86,7 +86,7 @@ show_issue(Project, N, _Query) ->
         undefined -> Html = no_resource(Project);
         I -> Html = tke_html:show_issue(Project, I, M, H)
     end,
-    log:debug("Html=~p", [Html]),
+    %log:debug("Html=~p", [Html]),
     Html.
 
 new_issue(Project, _Query) ->
@@ -122,6 +122,7 @@ serve('POST', Url_tokens, Http_req) ->
     %log:debug("Post: Post_data=~p", [Post_data]),
 
 http_post([Project, "issue", N], Multipart_data) -> 
+    log:debug("http_post: Multipart_data=~p", [Multipart_data]),
     % consolidate Multipart_data
     Issue = consolidate_multipart(Multipart_data, []),
     I2 = proplists:delete(id, Issue), % normally not needed
@@ -143,10 +144,34 @@ http_post([Project, "issue", N], Multipart_data) ->
     end.
 
 % convert multipart list to a proplist
-consolidate_multipart([], Acc) -> Acc;
+consolidate_multipart([], Acc) -> 
+    log:debug("consolidate_multipart: result=~p", [Acc]),
+    Acc;
 consolidate_multipart([{head,{Name,_Headers}}, {body, Value} | Others], Acc) ->
     Atom = list_to_atom(Name), % TODO prevent DOS via too many atoms
-    consolidate_multipart(Others, [{Atom, Value}|Acc]).
+    % in case of multiple select, we get: {tags,"v1.0"}, {tags,"v1.1"}, etc.
+    % and we need: {tags, ["v1.0", "v1.1",...]}
+    case proplists:get_value(Atom, Acc) of
+        undefined -> 
+            log:debug("consolidate_multipart: undefined ~p", [Atom]),
+            Acc2 = [{Atom, Value}|Acc];
+
+        Old_value ->
+            log:debug("consolidate_multipart: Old_value=~p", [Old_value]),
+            % if list of char "v1.0", then it must be enclosed in new list
+            % if not, then it is already ["v1.0", "v1.1"]
+            Acc1 = proplists:delete(Atom, Acc),
+
+            log:debug("consolidate_multipart: Acc1=~p", [Acc1]),
+            [X | _Y] = Old_value,
+            case X of
+                X when is_integer(X) -> % case of a string (list of char)
+                    Acc2 = [{Atom, [Value, Old_value]}|Acc1];
+                X ->
+                    Acc2 = [{Atom, [Value | Old_value]}|Acc1]
+        end
+    end,
+    consolidate_multipart(Others, Acc2).
 
 
 % HTTP get

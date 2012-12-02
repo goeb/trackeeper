@@ -174,17 +174,33 @@ edition_select(Name, _Value, [], Acc, multiple_no) ->
 edition_select(Name, _Value, [], Acc, multiple_yes) ->
     {select, [{name, Name}, {multiple, "multiple"}], lists:reverse(Acc)};
 
+%% field for selecting among list of users
 edition_select(Name, Value, user, Acc, Multiple) ->
     edition_select(Name, Value, tke_user:get_list_of_users(), Acc, Multiple);
 
-edition_select(Name, Value, [Option | Rest], Acc, Multiple) ->
+edition_select(Name, Value, [Option | Rest], Acc, multiple_yes) ->
+    % if Option is in the list given by Value, then select this option
+    % (or if Option == Value as well)
+    case Option of
+        Value -> % pre-select this one
+            Attr = [{selected, "selected"}];
+        _Else ->
+            case lists:member(Option, Value) of
+                true -> Attr = [{selected, "selected"}];
+                _Else2 -> Attr = []
+            end
+    end,
+    Html_opt = {option, [{value, Option}|Attr], Option},
+    edition_select(Name, Value, Rest, [Html_opt | Acc], multiple_yes);
+
+edition_select(Name, Value, [Option | Rest], Acc, multiple_no) ->
     case Option of
         Value -> % pre-select this one
             Attr = [{selected, "selected"}];
         _Else -> Attr = []
     end,
     Html_opt = {option, [{value, Option}|Attr], Option},
-    edition_select(Name, Value, Rest, [Html_opt | Acc], Multiple).
+    edition_select(Name, Value, Rest, [Html_opt | Acc], multiple_no).
 
 % return EHTML for diaplying issue
 show_issue(Project, Issue, Messages, History) ->
