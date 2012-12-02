@@ -25,7 +25,7 @@
 -export([code_change/3, handle_info/2, terminate/2]).
 
 -export([get/3, update/3, search/3]).
--export([get_columns_automatic/0]).
+-export([get_columns_automatic/0, get_column_properties/2]).
 
 -include("tke_db.hrl").
 -record(project, {name, issues, messages, history, structure}).
@@ -62,6 +62,10 @@ update(Project, issue, Issue) ->
 search(Project, Table, Search) ->
     gen_server:call(registered_name(Project), {search, Table, Search}).
 
+%% Get properties of a column
+%% (such as multi-select, etc.)
+get_column_properties(Project, Column) ->
+    gen_server:call(registered_name(Project), {get_column_properties, Column}).
 
 %% Internals -------------------
 
@@ -191,7 +195,12 @@ handle_call({search, history, Issue_id}, _From, Ctx) ->
     History = ets:match_object(Ctx#project.history, Pattern),
     H_list = [convert_to_proplist(Ctx, H) || H <- History],
     H_list2 = sort(H_list, [id]),
-    {reply, H_list2, Ctx}.
+    {reply, H_list2, Ctx};
+
+handle_call({get_column_properties, Column}, _From, Ctx) ->
+    Columns = proplists:get_value(issue_columns, Ctx#project.structure),
+    Properties = proplists:get_value(Column, Columns),
+    {reply, Properties, Ctx}.
 
 
 %% Return proplists of issue, with all fields undefined

@@ -157,17 +157,41 @@ print_diff([{Old_value, New_value} | Rest_diff], Acc) ->
 %% HTML for edition of field (<input>)
 %% Name = atom() : specify the field
 %% Value = term() : current value
-edition_field(Name, Value) ->
+%% Properties = tuple() : select, select_multiple, none
+edition_field(Name, Value, {}) ->
     % TODO get list of values for lists, get size, etc.
     { input, [{name, atom_to_list(Name)},
-            {type, "text"}, {value, to_string(Value)}], ""}.
+            {type, "text"}, {value, to_string(Value)}], ""};
+edition_field(Name, Value, {select, List}) ->
+    edition_select(Name, Value, List, [], multiple_no);
+edition_field(Name, Value, {select_multiple, List}) ->
+    edition_select(Name, Value, List, [], multiple_yes).
+
+%% <select>
+edition_select(Name, _Value, [], Acc, multiple_no) ->
+    {select, [{name, Name}], lists:reverse(Acc)};
+
+edition_select(Name, _Value, [], Acc, multiple_yes) ->
+    {select, [{name, Name}, {multiple, "multiple"}], lists:reverse(Acc)};
+
+edition_select(Name, Value, user, Acc, Multiple) ->
+    edition_select(Name, Value, tke_user:get_list_of_users(), Acc, Multiple);
+
+edition_select(Name, Value, [Option | Rest], Acc, Multiple) ->
+    case Option of
+        Value -> % pre-select this one
+            Attr = [{selected, "selected"}];
+        _Else -> Attr = []
+    end,
+    Html_opt = {option, [{value, Option}|Attr], Option},
+    edition_select(Name, Value, Rest, [Html_opt | Acc], Multiple).
 
 % return EHTML for diaplying issue
 show_issue(Project, Issue, Messages, History) ->
     log:debug("show_issue..."),
     [   header(Project),
         title_issue(Issue),
-        edition_form(Issue),
+        edition_form(Project, Issue),
         created_by(Issue),
         messages(Messages, []),
         history(History, []),
@@ -192,7 +216,7 @@ created_by(Issue) ->
     {ehtml, {p, [], "Created on <b>" ++ Ctime_str ++ "</b> by <b>"
             ++ Author_str ++ "</b>"}}.
 
-edition_form(Issue) ->
+edition_form(Project, Issue) ->
     {ehtml, {form, [
                 {method, "post"},
                 {action, ""},
@@ -200,23 +224,24 @@ edition_form(Issue) ->
             ],
 
                 {table, [{class, "form"}], [
-                    details(Issue, []),
+                    details(Project, Issue, []),
                     edition_message(),
                     submit()
                 ]}  % end of table
         }}.
 
 % fields of an issue
-details([], Html_rows_acc) -> lists:reverse(Html_rows_acc);
+details(_Project, [], Html_rows_acc) -> lists:reverse(Html_rows_acc);
 % id is not editable
-details([{Name, Value} | Others], Acc) ->
+details(Project, [{Name, Value} | Others], Acc) ->
     case lists:member(Name, tke_db:get_columns_automatic()) of
         true -> % automatic fields are not editable
-            details(Others, Acc);
+            details(Project, Others, Acc);
         _Else ->
+            P = tke_db:get_column_properties(Project, Name),
             Ehtml = {tr, [], [{th, [], atom_to_list(Name)},
-                              {td, [], edition_field(Name, Value)}]},
-            details(Others, [Ehtml | Acc])
+                              {td, [], edition_field(Name, Value, P)}]},
+            details(Project, Others, [Ehtml | Acc])
     end.
 
 edition_message() ->
