@@ -25,6 +25,7 @@
 -export([code_change/3, handle_info/2, terminate/2]).
 
 -export([get/3, update/3, search/3]).
+-export([get_columns_automatic/0]).
 
 -include("tke_db.hrl").
 -record(project, {name, issues, messages, history, structure}).
@@ -73,13 +74,9 @@ registered_name(Project) ->
 init(Project) ->
     log:debug("Loading project ~p", [Project]),
     % TODO load from disk and populate an ets table
-    {Issues, Messages, History, Structure} = load(Project),
+    Ctx = load(Project),
     log:debug("Loading project ~p completed", [Project]),
-    {ok, #project{name=Project,
-                  issues=Issues,
-                  messages=Messages,
-                  history=History,
-                  structure=Structure}}.
+    {ok, Ctx}.
 
 handle_call({get, issue, empty}, _From, Ctx) ->
     E = get_empty_issue(Ctx),
@@ -104,15 +101,29 @@ handle_call({update, Issue}, _From, Ctx) ->
     log:debug("update: Issue=~p", [Issue]),
     Id0 = proplists:get_value(id, Issue),
     % TODO the diff of the issue wrt. to previous value
+    Timestamp = get_timestamp(),
     case Id0 of 
         undefined ->
             Id = get_new_id(Ctx#project.issues),
+            % ctime
+            Ctime = Timestamp,
+            % author
+            Author = tke_user:get_author(),
             Issue2 = proplists:delete(id, Issue), % replace id
-            Issue3 = [{id, Id} | Issue2];
+            Issue21 = [{id, Id}, {ctime, Ctime}, {author, Author},
+                      {mtime, Timestamp} | Issue2];
         Id0 ->
             Id = Id0,
-            Issue3 = Issue
+            [Old_issue_0] = ets:lookup(Ctx#project.issues, Id0),
+            Oi = convert_to_proplist(Ctx, Old_issue_0),
+            % report automatic fields of existing issue
+            Ctime = proplists:get_value(ctime, Oi),
+            Mtime = proplists:get_value(mtime, Oi),
+            Author = proplists:get_value(author, Oi),
+            Issue21 = [{ctime, Ctime}, {author, Author}, {mtime, Mtime}
+                | Issue]
     end,
+    Issue3 = [{mtime, Timestamp} | Issue21],
     % convert proplist to entry (~ record)
     I = convert_to_entry(Ctx, issue, Issue3),
 
@@ -125,7 +136,6 @@ handle_call({update, Issue}, _From, Ctx) ->
             log:debug("Diff: ~p", [Diff])
     end,
 
-    Timestamp = get_timestamp(),
     case Diff of 
         [] -> % nothing new. do not update anything
             log:debug("nothing updated");
@@ -209,8 +219,13 @@ load(Project) ->
     Issue_table = ets:new(issue,[private, {keypos, 2}]),
     Message_table = ets:new(message,[private, {keypos, 2}]),
     History_table = ets:new(history,[private, {keypos, 2}]),
-    load_issues(Project, Issue_table, Message_table, History_table),
-    {Issue_table, Message_table, History_table, Structure}.
+    Ctx = #project{name=Project,
+                   issues=Issue_table,
+                   messages=Message_table,
+                   history=History_table,
+                   structure=Structure},
+    load_issues(Ctx),
+    Ctx.
 
 load_project_file(Project) ->
     File = Project ++ "/project",
@@ -218,23 +233,25 @@ load_project_file(Project) ->
     Term = decode_contents(Binary),
     Term.
 
-load_issues(Project, Issue_table, Message_table, History) ->
-    {ok, Files} = file:list_dir(Project),
-    Dirs = [Project ++ "/" ++ File || File <- Files],
-    load_issues_from_dirs(Dirs, Issue_table, Message_table, History).
+load_issues(Ctx) ->
+    {ok, Files} = file:list_dir(Ctx#project.name),
+    Dirs = [Ctx#project.name ++ "/" ++ File || File <- Files],
+    load_issues_from_dirs(Dirs, Ctx).
 
-load_issues_from_dirs([], _Issues, _Messages, _History) -> ok;
-load_issues_from_dirs([Dir | Others], Issues, Messages, History) ->
+load_issues_from_dirs([], _Ctx) -> ok;
+load_issues_from_dirs([Dir | Others], Ctx) ->
     File = Dir ++ "/issue",
     case file:read_file(File) of
         {error, _Reason} -> ok;
         {ok, Binary} ->
             Term = decode_contents(Binary),
-            ets:insert(Issues, Term)
+            % convert proplist to record-like tuple
+            I = convert_to_entry(Ctx, issue, Term),
+            ets:insert(Ctx#project.issues, I)
             %log:debug("Issue ~p loaded.", [File])
     end,
-    load_messages_and_history(Dir, Messages, History),
-    load_issues_from_dirs(Others, Issues, Messages, History).
+    load_messages_and_history(Dir, Ctx#project.messages, Ctx#project.history),
+    load_issues_from_dirs(Others, Ctx).
 
 decode_contents(Binary) ->
     S = binary_to_list(Binary),
@@ -291,7 +308,9 @@ sync(Ctx, I) when element(1, I) == issue ->
     Dirname = Ctx#project.name ++ "/" ++ Id,
     file:make_dir(Dirname),
     Filename = Dirname ++ "/issue",
-    sync_file(Filename, I);
+    % convert record-like tuple to proplist
+    Prop_i = convert_to_proplist(Ctx, I),
+    sync_file(Filename, Prop_i);
 
 sync(Ctx, M = #message{}) ->
     log:debug("syncing message: ~p", [M]),
@@ -431,10 +450,11 @@ add_elements(Tuple, N) ->
 %% Stucture of table issue
 %% Columns are read from file <project-dir>/project and stored in Ctx
 get_columns(Ctx, issue) ->
-    T = proplists:get_value(tables, Ctx#project.structure),
-    Issue_table = proplists:get_value(issue, T),
-    Columns = proplists:get_value(columns, Issue_table),
-    get_ordered_keys(Columns, []).
+    Columns = proplists:get_value(issue_columns, Ctx#project.structure),
+    % add "hidden" columns id, ctime, author  
+    get_columns_automatic() ++ get_ordered_keys(Columns, []).
+
+get_columns_automatic() -> [id, ctime, mtime, author].
 
 %% Return the ordered list of keys of the given proplist.
 %% This is not available from the proplists module

@@ -20,11 +20,13 @@ format_table_of_issues(Columns, Issues) ->
     {ehtml, { table, [{class, "list"}], [Head_ehtml, Rows_ehtml]}}.
 
 date_to_string(undefined) -> "(undefined)";
+date_to_string({{Y, Month, D},{H, Min, S}}) ->
+    L = io_lib:format("~B-~2..0B-~2..0B ~2..0B:~2..0B:~2..0B",
+                              [Y, Month, D, H, Min, S]),
+                              lists:flatten(L);
 date_to_string(Timestamp) ->
     {{Y, Month, D},{H, Min, S}} = calendar:universal_time_to_local_time(Timestamp),
-    L = io_lib:format("~B-~2..0B-~2..0B ~2..0B:~2..0B:~2..0B",
-                      [Y, Month, D, H, Min, S]),
-    lists:flatten(L).
+    date_to_string({{Y, Month, D},{H, Min, S}}).
 
 to_string(X) when is_list(X) -> X;
 to_string(X) when is_binary(X) -> binary_to_list(X);
@@ -32,12 +34,14 @@ to_string(X) when is_integer(X) -> [R] = io_lib:format("~B", [X]), R;
 to_string(X) when is_float(X) -> [R] = io_lib:format("~.2f", [X]), R;
 to_string(null) -> "(null)";
 to_string(undefined) -> "(undefined)";
+to_string({{A, B, C}, {D, E, F}}) -> date_to_string({{A, B, C}, {D, E, F}});
 to_string(X) -> io_lib:format("~s", [X]).
 
 to_action_string([], Str) -> Str;
 to_action_string(new, _Str) -> "create";
 to_action_string([{Old, New} | Rest], Str) ->
-    to_action_string(Rest, Str ++ " " ++ Old ++ " -> " ++ New ++ "<br>\n").
+    to_action_string(Rest, to_string(Str) ++ " " ++ to_string(Old)
+        ++ " -> " ++ to_string(New) ++ "<br>\n").
 
 format_cell(undefined, Column_name, _Column_value) -> atom_to_list(Column_name);
 format_cell(Rowid, title, Column_value) ->
@@ -193,13 +197,18 @@ edition_form(Issue) ->
                 ]}  % end of table
         }}.
 
+% fields of an issue
 details([], Html_rows_acc) -> lists:reverse(Html_rows_acc);
 % id is not editable
-details([{id, _Value} | Others], Acc) -> details(Others, Acc);
 details([{Name, Value} | Others], Acc) ->
-    Ehtml = {tr, [], [{th, [], atom_to_list(Name)},
-                      {td, [], edition_field(Name, Value)}]},
-    details(Others, [Ehtml | Acc]).
+    case lists:member(Name, tke_db:get_columns_automatic()) of
+        true -> % automatic fields are not editable
+            details(Others, Acc);
+        _Else ->
+            Ehtml = {tr, [], [{th, [], atom_to_list(Name)},
+                              {td, [], edition_field(Name, Value)}]},
+            details(Others, [Ehtml | Acc])
+    end.
 
 edition_message() ->
     {tr, [], [{th, [], "Description: "},
