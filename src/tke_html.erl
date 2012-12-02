@@ -168,6 +168,7 @@ show_issue(Project, Issue, Messages, History) ->
     [   header(Project),
         title_issue(Issue),
         edition_form(Issue),
+        created_by(Issue),
         messages(Messages, []),
         history(History, []),
         footer(Project)
@@ -182,6 +183,14 @@ title_issue(Issue) ->
             Title = "Issue " ++ Id
     end,
     {ehtml, {h1, [], Title}}.
+
+created_by(Issue) ->
+    Ctime = proplists:get_value(ctime, Issue),
+    Author = proplists:get_value(author, Issue),
+    Ctime_str = to_string(Ctime),
+    Author_str = to_string(Author),
+    {ehtml, {p, [], "Created on <b>" ++ Ctime_str ++ "</b> by <b>"
+            ++ Author_str ++ "</b>"}}.
 
 edition_form(Issue) ->
     {ehtml, {form, [
