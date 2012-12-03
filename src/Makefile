@@ -11,3 +11,6 @@ all: $(OBJS)
 print:
 	@echo $(SRCS)
 	@echo $(OBJS)
+
+doc:
+	cd ..; escript scripts/gendoc.escript src/*erl
