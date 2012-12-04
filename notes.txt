@@ -7,10 +7,10 @@ GET
     /projectName/             : home page of project
     /projectName/issue/[list] : list of issues
         optional query string :
-        can=1&q=searchtext
+        search=text
         sort=id+title-owner : id ascending, then title ascending, then owner descending
         colspec=Stars+ID+Type+Status+Priority+Owner+Summary
-        can=2&q=label%3Atyty%20status%3Astarted%20cc%3Ayyyyyyyyyyyuuuu
+        filter=label%3Av1.0+status%3Aopen+cc%3Ayyyyyyyyyyyuuuu
         
     /projectName/issue/N      : details of issue N
     /projectName/issue/search : search form

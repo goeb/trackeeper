@@ -49,6 +49,7 @@ list_issues(Project_name, Query_params) ->
     log:info("list_issues(~p, issues, list, query=~p)\n", [Project_name, Query_params]),
     Colspec = get_colspec(Query_params),
     Sorting = get_sorting(Query_params),
+    Filter = get_filter(Query_params),
     {Columns, Issues} = tke_db:search(Project_name, issue,
         [{columns, Colspec}, {sort, Sorting}]),
     [tke_html:header(Project_name),
@@ -71,6 +72,20 @@ get_sorting(Query_params) ->
         undefined -> undefined;
         _Else -> [list_to_atom(X) || X <- string:tokens(Sorting, "+")]
     end.
+
+%% filter=label:v1.0+status:open
+%% => [{label, "v1.0"}, {status, "open"}]
+get_filter(Query_params) ->
+    Filter = proplists:get_value(filter, Query_params),
+    parse_filter(Filter).
+
+parse_filter(undefined) -> undefined;
+parse_filter(Filter) ->
+    Groups = string:tokens(Filter, "+"),
+    [string:tokens(X, ":") || X <- Groups]
+    .
+
+
 
 
 % show page for issue N

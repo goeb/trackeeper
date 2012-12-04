@@ -46,14 +46,13 @@ to_action_string([{Old, New} | Rest], Str) ->
 format_cell(undefined, Column_name, _Column_value) -> atom_to_list(Column_name);
 format_cell(Rowid, title, Column_value) ->
     {a, [{href, to_string(Rowid)}], to_string(Column_value)};
-format_cell(_Rowid, "date", null) -> to_string(null);
-format_cell(_Rowid, "date", Column_value) ->
+format_cell(_Rowid, mtime, Time = {{_Y, _Month, _D}, {_H, _Min, _Second}}) ->
     % compute duration since latest activity
     Now = calendar:universal_time(),
-    Seconds = calendar:datetime_to_gregorian_seconds(Now),
+    Seconds_now = calendar:datetime_to_gregorian_seconds(Now),
+    Seconds_event = calendar:datetime_to_gregorian_seconds(Time),
     % convert Column_value to gregorian seconds
-    Val = Column_value + 719528*86400,
-    Dur = Seconds - Val,
+    Dur = Seconds_now - Seconds_event,
     case Dur of 
         Dur when Dur < 60 -> T = to_string(Dur) ++ " s";
         Dur when Dur < 3600 -> T = to_string(Dur/60) ++ " min";
@@ -181,14 +180,21 @@ edition_select(Name, Value, user, Acc, Multiple) ->
 edition_select(Name, Value, [Option | Rest], Acc, multiple_yes) ->
     % if Option is in the list given by Value, then select this option
     % (or if Option == Value as well)
-    case Option of
-        Value -> % pre-select this one
-            Attr = [{selected, "selected"}];
-        _Else ->
-            case lists:member(Option, Value) of
-                true -> Attr = [{selected, "selected"}];
-                _Else2 -> Attr = []
-            end
+    if 
+        is_list(Value) ->
+            [A | _B] = Value,
+            if is_list(A) -> % case where Value is list(list(char))
+                case lists:member(Option, Value) of
+                    true -> Attr = [{selected, "selected"}];
+                    _Else2 -> Attr = []
+                end;
+
+            Option == Value -> % case where Value is list(char)
+                Attr = [{selected, "selected"}]
+            end;
+
+        true -> % may be 'undefined' for creation of a new issue
+            Attr = []
     end,
     Html_opt = {option, [{value, Option}|Attr], Option},
     edition_select(Name, Value, Rest, [Html_opt | Acc], multiple_yes);
@@ -229,8 +235,12 @@ created_by(Issue) ->
     Author = proplists:get_value(author, Issue),
     Ctime_str = to_string(Ctime),
     Author_str = to_string(Author),
-    {ehtml, {p, [], "Created on <b>" ++ Ctime_str ++ "</b> by <b>"
-            ++ Author_str ++ "</b>"}}.
+    if Ctime == undefined ->
+            "";
+        true ->
+            {ehtml, {p, [], "Created on <b>" ++ Ctime_str ++ "</b> by <b>"
+            ++ Author_str ++ "</b>"}}
+    end.
 
 edition_form(Project, Issue) ->
     {ehtml, {form, [
