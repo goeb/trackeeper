@@ -4,6 +4,8 @@ REST API
 http://localhost:8000/
 
 GET
+    /                         : list of projects
+
     /projectName/             : home page of project
     /projectName/issue/[list] : list of issues
         optional query string :
@@ -15,8 +17,11 @@ GET
     /projectName/issue/N      : details of issue N
     /projectName/issue/search : search form
     /projectName/issue/new    : form for adding a new issue
+
+    ? question here : are users global to all projects or local per project?
     /projectName/user/John Smith : details of user John Smith
     /projectName/login        : login form
+
     /projectName/structure    : form for modifying database structure
         add/delete field
         add/delete values in predefined lists
@@ -24,8 +29,10 @@ GET
 POST
     /projectName/issue/new    : add new issue
     /projectName/issue/N      : modify issue N
-    /projectName/user/John Smith : modify user John Smith's details
     /projectName/structure    : modify database structure
+
+    ? same question...
+    /projectName/user/John Smith : modify user John Smith's details
 
 
 
@@ -46,4 +53,12 @@ erl -pa ~/erlang-sqlite3/ebin
  {2,<<"typo in comment">>,1,1},
  {3,<<"Serious slow-down at startup">>,1,1},
  {4,<<"empty plc database">>,1,1}]
+
+
+---
+
+how to distinguish html rendering, erlang, xml, csv, json ?
+how the client should indicate its choice ?
+    ?format=cvs ?format=xml etc.
+
 

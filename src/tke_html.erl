@@ -180,8 +180,9 @@ edition_select(Name, Value, user, Acc, Multiple) ->
 edition_select(Name, Value, [Option | Rest], Acc, multiple_yes) ->
     % if Option is in the list given by Value, then select this option
     % (or if Option == Value as well)
+    log:debug("Value=~p", [Value]),
     if 
-        is_list(Value) ->
+        is_list(Value) and (length(Value) > 0) ->
             [A | _B] = Value,
             if is_list(A) -> % case where Value is list(list(char))
                 case lists:member(Option, Value) of
@@ -190,7 +191,9 @@ edition_select(Name, Value, [Option | Rest], Acc, multiple_yes) ->
                 end;
 
             Option == Value -> % case where Value is list(char)
-                Attr = [{selected, "selected"}]
+                Attr = [{selected, "selected"}];
+
+            true -> Attr = []
             end;
 
         true -> % may be 'undefined' for creation of a new issue
