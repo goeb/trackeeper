@@ -66,3 +66,7 @@ how the client should indicate its choice ?
     ?format=cvs ?format=xml etc.
 
 
+-- user authentication
+
+Login HTML page 
+

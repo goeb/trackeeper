@@ -8,6 +8,7 @@
 
 -export([resource_not_found/0, header/1, format_table_of_issues/2, footer/1]).
 -export([show_issue/4]).
+-export([login_page/0]).
 
 % Return the ehtml structure for the table of issues
 % The rowid must be present
@@ -302,3 +303,7 @@ header(Project) ->
 footer(Project) ->
     {ok, Footer} = file:read_file(Project ++ "/footer.html"),
     {html, Footer}.
+
+login_page() ->
+    {ok, Html} = file:read_file("tke_users/login.html"),
+    {html, Html}.

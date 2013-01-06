@@ -123,24 +123,32 @@ parse_query_string(Query_string) ->
 serve('GET', Url_tokens, Http_req) -> 
     Q = parse_query_string(Http_req#arg.querydata),
     http_get(Url_tokens, Q);
+
 serve('POST', Url_tokens, Http_req) ->
-    case yaws_api:parse_multipart_post(Http_req) of
-        {result, Data} -> 
-                log:debug("content_type=~p",
-                    [Http_req#arg.headers#headers.content_type]),
-                http_post(Url_tokens, Data);
-        {cont, Cont, _Res} ->
-            % TODO accumulate data
-            {get_more, Cont, todo}
+    log:debug("Http_req=~p", [Http_req]),
+    log:debug("content_type=~p", [Http_req#arg.headers#headers.content_type]),
+
+    case string:str(Http_req#arg.headers#headers.content_type, "multipart/form-data") of
+        0 -> % not found. This is not a "multipart/form-data"
+            Data = yaws_api:parse_post(Http_req),
+            http_post(Url_tokens, Data);
+        _Else ->
+            case yaws_api:parse_multipart_post(Http_req) of
+                {result, Data} -> 
+                        % consolidate Multipart_data
+                        Data_proplist = consolidate_multipart(Data, []),
+                        log:debug("Data_proplist=~p", [Data_proplist]),
+                        http_post(Url_tokens, Data_proplist);
+                {cont, Cont, _Res} ->
+                    % TODO accumulate data
+                    {get_more, Cont, todo}
+            end
     end.
     %Post_data = yaws_api:parse_post(Http_req),
     %log:debug("Post: Multipart=~p", [Multipart]),
     %log:debug("Post: Post_data=~p", [Post_data]),
 
-http_post([Project, "issue", N], Multipart_data) -> 
-    log:debug("http_post: Multipart_data=~p", [Multipart_data]),
-    % consolidate Multipart_data
-    Issue = consolidate_multipart(Multipart_data, []),
+http_post([Project, "issue", N], Issue) -> 
     I2 = proplists:delete(id, Issue), % normally not needed
     case N of
         "new" -> % set id = undefined
@@ -157,7 +165,13 @@ http_post([Project, "issue", N], Multipart_data) ->
             log:debug("redirect to: " ++ Redirect_url),
             {redirect, Redirect_url};
         N -> show_issue(Project, N, "")
-    end.
+    end;
+
+
+http_post(["login"], Login) -> 
+    log:debug("Login data: ~p", [Login]),
+    % TODO handle login
+    tke_html:login_page().
 
 % convert multipart list to a proplist
 consolidate_multipart([], Acc) -> 
@@ -195,6 +209,7 @@ consolidate_multipart([{head,{Name,_Headers}}, {body, Value} | Others], Acc) ->
 % Resource = "issue" | TODO
 % Query = proplists of items of the HTTP query string
 http_get([], _Query) -> tke_html:resource_not_found();
+http_get(["login"], _Query) -> tke_html:login_page();
 http_get([Project], _Query) -> no_resource(Project);
 http_get([Project, "issue"], Query) -> list_issues(Project, Query);
 http_get([Project, "issue", "list"], Query) -> list_issues(Project, Query);
