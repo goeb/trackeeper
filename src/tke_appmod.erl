@@ -7,7 +7,8 @@
 %% init server
 start() ->
     io:format("~p starting...\n", [ ?MODULE ]),
-    tke_db:start("tke"),
+    tke_db:start("tke"), % TODO start as many tke_db as there are projects
+    tke_user:start(),
     %tke_db:start("simpleP"),
     spawn(?MODULE, loop, []),
     ok.

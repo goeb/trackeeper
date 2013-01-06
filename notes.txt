@@ -32,6 +32,10 @@ POST
     /projectName/structure    : modify database structure
 
     ? same question...
+    /login
+        user=
+        password=
+        result: list of projects
     /projectName/user/John Smith : modify user John Smith's details
 
 

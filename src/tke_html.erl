@@ -6,7 +6,8 @@
 
 -module(tke_html).
 
--compile(export_all). % TODO replace with only needed exports
+-export([resource_not_found/0, header/1, format_table_of_issues/2, footer/1]).
+-export([show_issue/4]).
 
 % Return the ehtml structure for the table of issues
 % The rowid must be present
@@ -157,27 +158,30 @@ print_diff([{Old_value, New_value} | Rest_diff], Acc) ->
 %% Name = atom() : specify the field
 %% Value = term() : current value
 %% Properties = tuple() : select, select_multiple, none
-edition_field(Name, Value, {}) ->
+edition_field(_P, Name, Value, {}) ->
     % TODO get list of values for lists, get size, etc.
     { input, [{name, atom_to_list(Name)},
             {type, "text"}, {value, to_string(Value)}], ""};
-edition_field(Name, Value, {select, List}) ->
-    edition_select(Name, Value, List, [], multiple_no);
-edition_field(Name, Value, {select_multiple, List}) ->
-    edition_select(Name, Value, List, [], multiple_yes).
+
+edition_field(Project, Name, Value, {select, List}) ->
+    edition_select(Project, Name, Value, List, [], multiple_no);
+
+edition_field(Project, Name, Value, {select_multiple, List}) ->
+    edition_select(Project, Name, Value, List, [], multiple_yes).
 
 %% <select>
-edition_select(Name, _Value, [], Acc, multiple_no) ->
+edition_select(_P, Name, _Value, [], Acc, multiple_no) ->
     {select, [{name, Name}], lists:reverse(Acc)};
 
-edition_select(Name, _Value, [], Acc, multiple_yes) ->
+edition_select(_P, Name, _Value, [], Acc, multiple_yes) ->
     {select, [{name, Name}, {multiple, "multiple"}], lists:reverse(Acc)};
 
 %% field for selecting among list of users
-edition_select(Name, Value, user, Acc, Multiple) ->
-    edition_select(Name, Value, tke_user:get_list_of_users(), Acc, Multiple);
+edition_select(Project, Name, Value, user, Acc, Multiple) ->
+    edition_select(Project, Name, Value,
+                   tke_user:get_list_of_users(Project), Acc, Multiple);
 
-edition_select(Name, Value, [Option | Rest], Acc, multiple_yes) ->
+edition_select(Project, Name, Value, [Option | Rest], Acc, multiple_yes) ->
     % if Option is in the list given by Value, then select this option
     % (or if Option == Value as well)
     log:debug("Value=~p", [Value]),
@@ -200,16 +204,16 @@ edition_select(Name, Value, [Option | Rest], Acc, multiple_yes) ->
             Attr = []
     end,
     Html_opt = {option, [{value, Option}|Attr], Option},
-    edition_select(Name, Value, Rest, [Html_opt | Acc], multiple_yes);
+    edition_select(Project, Name, Value, Rest, [Html_opt | Acc], multiple_yes);
 
-edition_select(Name, Value, [Option | Rest], Acc, multiple_no) ->
+edition_select(Project, Name, Value, [Option | Rest], Acc, multiple_no) ->
     case Option of
         Value -> % pre-select this one
             Attr = [{selected, "selected"}];
         _Else -> Attr = []
     end,
     Html_opt = {option, [{value, Option}|Attr], Option},
-    edition_select(Name, Value, Rest, [Html_opt | Acc], multiple_no).
+    edition_select(Project, Name, Value, Rest, [Html_opt | Acc], multiple_no).
 
 % return EHTML for diaplying issue
 show_issue(Project, Issue, Messages, History) ->
@@ -269,7 +273,7 @@ details(Project, [{Name, Value} | Others], Acc) ->
         _Else ->
             P = tke_db:get_column_properties(Project, Name),
             Ehtml = {tr, [], [{th, [], atom_to_list(Name)},
-                              {td, [], edition_field(Name, Value, P)}]},
+                              {td, [], edition_field(Project, Name, Value, P)}]},
             details(Project, Others, [Ehtml | Acc])
     end.
 
