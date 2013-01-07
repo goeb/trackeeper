@@ -13,6 +13,7 @@
 
 -export([get_user/1, get_list_of_users/1]).
 -export([check_user_login/2]).
+-export([get_author/0]). % TODO remove this obsolete one
 
 %% API -------------------
 
@@ -21,6 +22,8 @@ start() ->
                           tke_user, [], []).
 
 stop() -> gen_server:cast(registered_name(), stop).
+
+get_author() -> "John".
 
 %% Get name of user that associated with a cookie
 %% Return: {ok, "UserName"} | {error, not_logged_in}

@@ -158,11 +158,14 @@ print_diff([{Old_value, New_value} | Rest_diff], Acc) ->
 %% HTML for edition of field (<input>)
 %% Name = atom() : specify the field
 %% Value = term() : current value
-%% Properties = tuple() : select, select_multiple, none
+%% Properties = tuple() : select, select_multiple, textarea, none
 edition_field(_P, Name, Value, {}) ->
     % TODO get list of values for lists, get size, etc.
     { input, [{name, atom_to_list(Name)},
             {type, "text"}, {value, to_string(Value)}], ""};
+
+edition_field(Project, Name, Value, {textarea}) ->
+    edition_textarea(Project, Name, Value);
 
 edition_field(Project, Name, Value, {select, List}) ->
     edition_select(Project, Name, Value, List, [], multiple_no);
@@ -176,6 +179,7 @@ edition_select(_P, Name, _Value, [], Acc, multiple_no) ->
 
 edition_select(_P, Name, _Value, [], Acc, multiple_yes) ->
     {select, [{name, Name}, {multiple, "multiple"}], lists:reverse(Acc)};
+
 
 %% field for selecting among list of users
 edition_select(Project, Name, Value, user, Acc, Multiple) ->
@@ -215,6 +219,11 @@ edition_select(Project, Name, Value, [Option | Rest], Acc, multiple_no) ->
     end,
     Html_opt = {option, [{value, Option}|Attr], Option},
     edition_select(Project, Name, Value, Rest, [Html_opt | Acc], multiple_no).
+
+%% <textarea>
+edition_textarea(_P, Name, Value) ->
+    {textarea, [{name, Name}], to_string(Value)}.
+
 
 % return EHTML for diaplying issue
 show_issue(Project, Issue, Messages, History) ->
