@@ -168,8 +168,13 @@ http_post([Project, "issue", N], Issue) ->
     end;
 
 
+% Login is a proplist 
 http_post(["login"], Login) -> 
     log:debug("Login data: ~p", [Login]),
+    Username = proplists:get_value("name",Login),
+    Password = proplists:get_value("password",Login),
+    Result = tke_user:check_user_login(Username, Password),
+    log:debug("check_user_login: ~p", [Result]),
     % TODO handle login
     tke_html:login_page().
 

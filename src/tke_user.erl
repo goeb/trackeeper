@@ -60,8 +60,15 @@ handle_call({get_list_of_users, Project}, _From, Ctx) ->
     R = ["John", "Mike", "Anna", "Alice", "Fred"],
     {reply, R, Ctx};
 
-handle_call({check_user_login, Username, Password}, _From, Ctx) ->
-    R = {ok, 1234},
+handle_call({check_user_login, Username, Password}, _From, Ctx={Config, _}) ->
+    Userinfo = proplists:get_value(Username, Config),
+    log:debug("Userinfo=~p", [Userinfo]),
+    case Userinfo of
+        undefined -> R = {error, unknown_username};
+        Userinfo ->
+            Expected_sha1 = proplists:get_value(sha1, Userinfo),
+            R = check_sha1(Password, Expected_sha1)
+    end,
     {reply, R, Ctx}.
 
 handle_cast(stop, Ctx) -> {stop, normal, Ctx};
@@ -82,4 +89,14 @@ decode_contents(Binary) ->
 code_change(_, _, _) -> ok.
 handle_info(_, _) -> ok.
 terminate(shutdown, _State) -> ok.
+
+%% Expected_sha1_hex = string() in hexadecimal notation
+%% Password = string()
+check_sha1(Password, Expected_sha1_hex) ->
+    Provided_sha1 = crypto:sha(Password),
+    Provided_sha1_hex = [ hd(erlang:integer_to_list(Nibble, 16)) || << Nibble:4 >> <= Provided_sha1 ],
+    case Provided_sha1_hex of 
+        Expected_sha1_hex -> ok;
+        _Else -> {error, invalid_password}
+    end.
 
