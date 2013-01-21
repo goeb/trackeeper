@@ -9,36 +9,7 @@ start() ->
     io:format("~p starting...\n", [ ?MODULE ]),
     tke_db:start("tke"), % TODO start as many tke_db as there are projects
     tke_user:start(),
-    %tke_db:start("simpleP"),
-    spawn(?MODULE, loop, []),
     ok.
-
-loop() ->
-    ets:new(tke_sessions, [set, public, named_table]),
-    receive
-      _ -> ok
-    end.
-
-getHistory(Id) ->
-    R = ets:lookup(tke_sessions, Id),
-    case R of
-      [] -> [];
-      [{_Cookie, Data}] -> Data
-    end.
-
-into(Cookie, Data) ->
-    ets:insert(tke_sessions, {Cookie, Data}).
-
-box(Str) ->
-    {'div',[{class,"box"}],
-     {pre,[],Str}}.
-
-new_session() ->
-    M = 333,
-    Cookie = yaws_api:new_cookie_session(M),
-    CO = yaws_api:setcookie("id",Cookie,"/"),
-    { CO, M }
-    .
 
 % action when no project name is given in the request
 no_project_name() -> tke_html:resource_not_found(). % not found
@@ -175,8 +146,17 @@ http_post(["login"], Login) ->
     Password = proplists:get_value("password",Login),
     Result = tke_user:check_user_login(Username, Password),
     log:debug("check_user_login: ~p", [Result]),
+    case Result of
+        {error, Reason} ->
+            Cookie_item = [];
+        ok ->
+            % start session
+            Cookie = yaws_api:new_cookie_session({user, Username}),
+            log:debug("new_cookie_session: Cookie=~p", [Cookie]),
+            Cookie_item = yaws_api:setcookie("sid", Cookie, "/")
+    end,
     % TODO handle login
-    tke_html:login_page().
+    [tke_html:login_page(), Cookie_item].
 
 % convert multipart list to a proplist
 consolidate_multipart([], Acc) -> 
@@ -224,6 +204,7 @@ http_get(A, B) -> log:info("Invalid GET request ~p ? ~p", [A, B]),
     tke_html:resource_not_found().
 
 out(A) ->
+    check_session(A),
     %log:debug("out(~p)", [A]),
     Method = A#arg.req#http_request.method,
     % TODO parse cookie / get session
@@ -231,40 +212,16 @@ out(A) ->
     serve(Method, Url_tokens, A).
 
     %% old code for managing session
-out_old(A) ->
-    H = A#arg.headers,
-    C = H#headers.cookie,
-    case yaws_api:find_cookie_val("id", C) of
-        [] ->
-            { CO, Id } = new_session(),
-            PreviousHistory = [];
-        Cookie ->
-            case yaws_api:cookieval_to_opaque(Cookie) of
-                {ok, Id} ->
-                    CO = none,
-                    PreviousHistory = getHistory(Id);
-                {error, no_session} ->
-                    { CO, Id } = new_session(),
-                    PreviousHistory = [ no_session ]
-            end
-    end,
 
-        
-    NewHistory = [ A#arg.appmoddata | PreviousHistory ],
-    into(Id, NewHistory),
-    
-    Html = {ehtml, [{p,[],
-       box(io_lib:format("A#arg.appmoddata = ~p~n"
-                         "A#arg.appmod_prepath = ~p~n"
-                         "A#arg.querydata = ~p~n"
-                         "history = ~p\n",
-                         [A#arg.appmoddata,
-                          A#arg.appmod_prepath,
-                          A#arg.querydata,
-                          NewHistory]))}]},
-    case CO of 
-        none -> Html;
-        _ -> [ Html, CO ]
+check_session(A) ->
+    H = A#arg.headers,
+    Cookie = H#headers.cookie,
+    case yaws_api:find_cookie_val("sid", Cookie) of
+        [] -> log:debug("no cookie found");
+        C ->
+            X = yaws_api:cookieval_to_opaque(C),
+            log:debug("sid=~p", [C]),
+            log:debug("Xcookie=~p", [X])
     end.
 
 

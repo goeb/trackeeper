@@ -14,3 +14,6 @@ print:
 
 doc:
 	cd ..; escript scripts/gendoc.escript src/*erl
+
+clean:
+	rm ../ebin/*.beam
