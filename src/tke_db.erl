@@ -157,24 +157,33 @@ handle_call({update, Issue}, _From, Ctx) ->
 
 % Search : proplist
 %   key 'columns' : list of columns needed in the return value
-%   key 'pattern' : pattern for selective search TODO
-handle_call({search, issue, Search}, _From, Ctx) ->
-    log:debug("search issue: Search=~p", [Search]),
+%   key 'search' : pattern for selective search
+handle_call({search, issue, Search_description}, _From, Ctx) ->
+    log:debug("search issue: Search=~p", [Search_description]),
     % for now, return the list of all issues
     % TODO filter
-    Pattern_l = lists:duplicate(length(get_columns(Ctx, issue)), '_'),
-    Pattern = list_to_tuple([issue | Pattern_l]),
-    Issues = ets:match_object(Ctx#project.issues, Pattern),
+    Search_text = proplists:get_value(search, Search_description),
+    case Search_text of
+        undefined ->
+            % search only based on the given criteria TODO (no criteria for now)
+            Pattern_l = lists:duplicate(length(get_columns(Ctx, issue)), '_'),
+            Pattern = list_to_tuple([issue | Pattern_l]),
+            Issues = ets:match_object(Ctx#project.issues, Pattern);
+
+        Search_text ->
+            Issues = full_text_search(Ctx#project.issues, Search_text)
+    end,
+
     I_list = [convert_to_proplist(Ctx, I) || I <- Issues],
     % now keep only the needed columns
-    Columns = proplists:get_value(columns, Search),
+    Columns = proplists:get_value(columns, Search_description),
     case Columns of
         all -> Needed_columns = get_columns(Ctx, issue);
         Needed_columns -> ok
     end,
 
     % do the sorting
-    Sort = proplists:get_value(sort, Search),
+    Sort = proplists:get_value(sort, Search_description),
     log:debug("search: Sort=~p", [Sort]),
     I_list2 = sort(I_list, Sort),
     {reply, {Needed_columns, I_list2}, Ctx};
@@ -500,3 +509,34 @@ make_diff([Old_value | Rest_old], [New_value | Rest_new], Acc) ->
     end.
 
 
+%% Perform a full text search on the given ETS table
+full_text_search(Table_issues, Text) ->
+    First = ets:first(Table_issues),
+    full_text_search(Table_issues, First, Text, []).
+
+
+full_text_search(Table_issues, '$end_of_table', Text, Found_issues) -> Found_issues;
+full_text_search(Table_issues, Key, Text, Found_issues) ->
+    [Item] = ets:lookup(Table_issues, Key),
+    % perform the search on the Key tuple
+    log:debug("full_text_search: Key=~p", [Key]),
+    case full_text_match(Item, Text, size(Item)) of
+        found -> Found = [Item | Found_issues];
+        not_found -> Found = Found_issues
+    end,
+    Next = ets:next(Table_issues, Key),
+    full_text_search(Table_issues, Next, Text, Found).
+
+full_text_match(Key, Text, 0) -> not_found;
+full_text_match(Key, Text, N) ->
+    Item = element(N, Key),
+    if
+        is_list(Item) -> Index = string:str(Item, Text);
+        true -> Index = 0
+    end,
+    case Index of
+        0 -> % not found, iterate
+            full_text_match(Key, Text, N-1);
+        Index -> found
+    end.
+    

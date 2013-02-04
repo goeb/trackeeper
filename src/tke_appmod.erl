@@ -22,8 +22,9 @@ list_issues(Project_name, Query_params) ->
     Colspec = get_colspec(Query_params),
     Sorting = get_sorting(Query_params),
     Filter = get_filter(Query_params),
+    Search_text = get_search_text(Query_params),
     {Columns, Issues} = tke_db:search(Project_name, issue,
-        [{columns, Colspec}, {sort, Sorting}]),
+        [{columns, Colspec}, {sort, Sorting}, {search, Search_text}]),
     [tke_html:header(Project_name),
      tke_html:format_table_of_issues(Columns, Issues),
      tke_html:footer(Project_name)
@@ -50,6 +51,11 @@ get_sorting(Query_params) ->
 get_filter(Query_params) ->
     Filter = proplists:get_value(filter, Query_params),
     parse_filter(Filter).
+
+%% get the searched text from the query string
+get_search_text(Query_params) ->
+    Search_text = proplists:get_value(search, Query_params),
+    Search_text.
 
 parse_filter(undefined) -> undefined;
 parse_filter(Filter) ->
