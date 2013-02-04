@@ -171,7 +171,9 @@ handle_call({search, issue, Search_description}, _From, Ctx) ->
             Issues = ets:match_object(Ctx#project.issues, Pattern);
 
         Search_text ->
-            Issues = full_text_search(Ctx#project.issues, Search_text)
+            Issues0 = full_text_search(Ctx#project.issues, Search_text),
+            Messages = full_text_search(Ctx#project.messages, Search_text),
+            Issues = merge_issues(Issues0, Ctx#project.issues, Messages)
     end,
 
     I_list = [convert_to_proplist(Ctx, I) || I <- Issues],
@@ -510,22 +512,22 @@ make_diff([Old_value | Rest_old], [New_value | Rest_new], Acc) ->
 
 
 %% Perform a full text search on the given ETS table
-full_text_search(Table_issues, Text) ->
-    First = ets:first(Table_issues),
-    full_text_search(Table_issues, First, Text, []).
+full_text_search(Table, Text) ->
+    First = ets:first(Table),
+    full_text_search(Table, First, Text, []).
 
 
-full_text_search(Table_issues, '$end_of_table', Text, Found_issues) -> Found_issues;
-full_text_search(Table_issues, Key, Text, Found_issues) ->
-    [Item] = ets:lookup(Table_issues, Key),
+full_text_search(Table, '$end_of_table', Text, Found_issues) -> Found_issues;
+full_text_search(Table, Key, Text, Found_issues) ->
+    [Item] = ets:lookup(Table, Key),
     % perform the search on the Key tuple
     log:debug("full_text_search: Key=~p", [Key]),
     case full_text_match(Item, Text, size(Item)) of
         found -> Found = [Item | Found_issues];
         not_found -> Found = Found_issues
     end,
-    Next = ets:next(Table_issues, Key),
-    full_text_search(Table_issues, Next, Text, Found).
+    Next = ets:next(Table, Key),
+    full_text_search(Table, Next, Text, Found).
 
 full_text_match(Key, Text, 0) -> not_found;
 full_text_match(Key, Text, N) ->
@@ -540,3 +542,24 @@ full_text_match(Key, Text, N) ->
         Index -> found
     end.
     
+
+%% merge the list of issues with the issues
+%% referenced by the messages
+merge_issues(Issues, Table_issues, []) -> Issues;
+merge_issues(Issues, Table_issues, [M | Rest]) ->
+    Id = M#message.issue,
+    case lookup_issue(Issues, Id) of
+        found -> merge_issues(Issues, Table_issues, Rest);
+        not_found -> % add the issue in the list
+            [Issue] = ets:lookup(Table_issues, Id),
+            merge_issues([Issue | Issues], Table_issues, Rest)
+    end.
+             
+%% look if Id is present in issue list
+lookup_issue([], Id) -> not_found;
+lookup_issue([Issue | Rest], Id) ->
+    case element(2, Issue) of
+        Id -> found;
+        _Else -> lookup_issue(Rest, Id)
+    end.
+
