@@ -1,20 +1,38 @@
-%%% ----------------------------------
-%%% Copyright Frederic Hoerni 2012
-%%% ----------------------------------
-%%% Manage TKE database.
-%%%
-%%%
-%%%
-%%% Example:
-%%% tke_db:get(tke, message, 4).
-%%%     [{id, 4}, {issue, 1}, {author, undefined},
-%%%              {ctime, undefined}, {contents, undefined}]
-%%% tke_db:get(tke, issue, 2).
-%%%     ...
-%%% tke_db:update(tke, issue, [{id, undefined}, ...]).
-%%%     {ok,#message{id = 4,issue = 1,author = undefined,
-%%%          ctime = undefined,contents = undefined}}
+%% ----------------------------------
+%% Copyright Frederic Hoerni 2013
+%% ----------------------------------
+%% Manage TKE database.
+%%
 
+%% @doc Module for TKE database
+%%
+%% @type issue() = proplist(). <p>An issue is referenced by an id.
+%% It has at least the following fields: id, ctime, mtime, author.
+%% <dl>
+%% <dt><code>id</code></dt>
+%% <dd>Identifier, used as unique key in the database</dd>
+%% <dt><code>ctime</code></dt>
+%% <dd>Creation time (UTC) of the issue, in the format datetime() as specified
+%% in the module calendar.
+%% Eg: {{2012,12,2},{13,54,8}}</dd>
+%% <dt><code>mtime</code></dt>
+%% <dd>Time of last modification (UTC). Same format as ctime.</dd>
+%% <dt><code>author</code></dt>
+%% <dd>Name of the user who created the issue. Format is string().</dd>
+%% </dl>
+%% </p>
+%% @type message() = proplist(). <p>This type is used for messages.
+%% A message is attached to an issue.
+%% </p>
+%% @type proplist() = [{atom(), any()}]. <p>Property lists are ordinary lists
+%% containing entries in the form of either tuples, whose first elements are
+%% keys used for lookup and insertion, or atoms, which work as shorthand for
+%% tuples <code>{Atom, true}</code>.
+%% </p>
+%% <p>They can be managed via the functions of the module proplists.
+%% </p>
+%%
+%% @end
 
 
 -module(tke_db).
@@ -40,25 +58,56 @@
 
 %% API -------------------
 
-% start as many processes as there are projects in the directory
+%% start as many processes as there are projects in the directory
+%% @spec start(Directory::filename()) -> any()
 start(Project) ->
     gen_server:start_link({local, registered_name(Project)},
                           tke_db, Project, []).
 
+%% @spec stop(Directory::filename()) -> any()
 stop(Project) -> gen_server:cast(registered_name(Project), stop).
 
-%% Project = atom() | list()
-%% Table = issue | message
+%% @spec get(Project, Table, Id) -> Result
+%%      Project     = string()
+%%      Table       = issue | message
+%%      Id          = integer()
+%%      Result      = issue() | message()
+%%
+%% @doc Get an issue or message after its identifier.
 get(Project, Table, N) when is_list(Project) ->
     gen_server:call(registered_name(Project), {get, Table, N}).
 
-%% if new issue, then create and return id.
-%% if existing issue, then update
-%% Issue contains the message
+%% @spec update(Project, issue, Issue) -> Result
+%%      Project     = string()
+%%      Issue       = issue()
+%%      Result      = any()
+%%
+%% @doc Update an existing issue or create a new one.
+%% If the id of Issue is <code>undefined</code>, then a new issue is created.
+%% Else the id is used to identify the issue to be updated.
 update(Project, issue, Issue) ->
     log:debug("update0: "),
     gen_server:call(registered_name(Project), {update, Issue}).
 
+%% @spec search(Project, Table, Search) -> Result
+%%      Project     = string()
+%%      Table       = issue | message
+%%      Search      = proplist()
+%%      Result      = {Columns, [issues()]}
+%%      Columns     = [atom()]
+%% @doc <p>Search for issues or messages according to a search description.
+%% </p>
+%% <p><code>Search</code> may contain the following search descriptors:</p>
+%% <dl>
+%% <dt><code>{columns, [atom()]} | {columns, all}</code></dt>
+%% <dd>Specify the columns needed in the result.</dd>
+%% <dt><code>{search, Text}</code></dt>
+%% <dd>Specify some text that should be present in all results.
+%% This implies a full-text search on all text fields.</dd>
+%% <dt><code>{filter, [{Column, Value}]} </code></dt>
+%% <dd>Specify values of columns that must be kept in the result.</dd>
+%% </dl>
+%%
 search(Project, Table, Search) ->
     gen_server:call(registered_name(Project), {search, Table, Search}).
 
