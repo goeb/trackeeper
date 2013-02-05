@@ -13,7 +13,7 @@ print:
 	@echo $(OBJS)
 
 doc:
-	cd ..; escript scripts/gendoc.escript src/*erl
+	cd ../doc; escript ../scripts/gendoc.escript ../src/*erl
 
 clean:
 	rm ../ebin/*.beam

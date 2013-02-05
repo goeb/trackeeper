@@ -1,0 +1,160 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+<title>Module tke_db</title>
+<link rel="stylesheet" type="text/css" href="stylesheet.css" title="EDoc">
+</head>
+<body bgcolor="white">
+<div class="navbar"><a name="#navbar_top"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<hr>
+
+<h1>Module tke_db</h1>
+<ul class="index"><li><a href="#description">Description</a></li><li><a href="#types">Data Types</a></li><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>Module for TKE database.
+
+<p><b>Behaviours:</b> <a href="gen_server.html"><tt>gen_server</tt></a>.</p>
+
+<h2><a name="description">Description</a></h2>Module for TKE database
+ 
+<h2><a name="types">Data Types</a></h2>
+
+<h3 class="typedecl"><a name="type-issue">issue()</a></h3>
+<p><tt>issue() = <a href="#type-proplist">proplist()</a></tt></p>
+<p><p>An issue is referenced by an id.
+  It has at least the following fields: id, ctime, mtime, author.
+  <dl>
+  <dt><code>id</code></dt>
+  <dd>Identifier, used as unique key in the database</dd>
+  <dt><code>ctime</code></dt>
+  <dd>Creation time (UTC) of the issue, in the format datetime() as specified
+  in the module calendar.
+  Eg: {{2012,12,2},{13,54,8}}</dd>
+  <dt><code>mtime</code></dt>
+  <dd>Time of last modification (UTC). Same format as ctime.</dd>
+  <dt><code>author</code></dt>
+  <dd>Name of the user who created the issue. Format is string().</dd>
+  </dl>
+  </p></p>
+
+<h3 class="typedecl"><a name="type-message">message()</a></h3>
+<p><tt>message() = <a href="#type-proplist">proplist()</a></tt></p>
+<p><p>This type is used for messages.
+  A message is attached to an issue.
+  </p></p>
+
+<h3 class="typedecl"><a name="type-proplist">proplist()</a></h3>
+<p><tt>proplist() = [{atom(), any()}]</tt></p>
+<p><p>Property lists are ordinary lists
+  containing entries in the form of either tuples, whose first elements are
+  keys used for lookup and insertion, or atoms, which work as shorthand for
+  tuples <code>{Atom, true}</code>.
+  </p>
+  <p>They can be managed via the functions of the module proplists.
+  </p>
+ </p>
+
+<h2><a name="index">Function Index</a></h2>
+<table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#code_change-3">code_change/3</a></td><td></td></tr>
+<tr><td valign="top"><a href="#get-3">get/3</a></td><td>Get an issue or message after its identifier.</td></tr>
+<tr><td valign="top"><a href="#get_column_properties-2">get_column_properties/2</a></td><td></td></tr>
+<tr><td valign="top"><a href="#get_columns_automatic-0">get_columns_automatic/0</a></td><td></td></tr>
+<tr><td valign="top"><a href="#handle_call-3">handle_call/3</a></td><td></td></tr>
+<tr><td valign="top"><a href="#handle_cast-2">handle_cast/2</a></td><td></td></tr>
+<tr><td valign="top"><a href="#handle_info-2">handle_info/2</a></td><td></td></tr>
+<tr><td valign="top"><a href="#init-1">init/1</a></td><td></td></tr>
+<tr><td valign="top"><a href="#search-3">search/3</a></td><td>Search for issues or messages according to a search description.</td></tr>
+<tr><td valign="top"><a href="#start-1">start/1</a></td><td></td></tr>
+<tr><td valign="top"><a href="#stop-1">stop/1</a></td><td></td></tr>
+<tr><td valign="top"><a href="#terminate-2">terminate/2</a></td><td></td></tr>
+<tr><td valign="top"><a href="#update-3">update/3</a></td><td>Update an existing issue or create a new one.</td></tr>
+</table>
+
+<h2><a name="functions">Function Details</a></h2>
+
+<h3 class="function"><a name="code_change-3">code_change/3</a></h3>
+<div class="spec">
+<p><tt>code_change(X1, X2, X3) -&gt; any()</tt></p>
+</div>
+
+<h3 class="function"><a name="get-3">get/3</a></h3>
+<div class="spec">
+<p><tt>get(Project, Table, N::Id) -&gt; Result</tt>
+<ul class="definitions"><li><tt>Project = string()</tt></li><li><tt>Table = issue | message</tt></li><li><tt>Id = integer()</tt></li><li><tt>Result = <a href="#type-issue">issue()</a> | <a href="#type-message">message()</a></tt></li></ul></p>
+</div><p>Get an issue or message after its identifier.</p>
+
+<h3 class="function"><a name="get_column_properties-2">get_column_properties/2</a></h3>
+<div class="spec">
+<p><tt>get_column_properties(Project, Column) -&gt; any()</tt></p>
+</div>
+
+<h3 class="function"><a name="get_columns_automatic-0">get_columns_automatic/0</a></h3>
+<div class="spec">
+<p><tt>get_columns_automatic() -&gt; any()</tt></p>
+</div>
+
+<h3 class="function"><a name="handle_call-3">handle_call/3</a></h3>
+<div class="spec">
+<p><tt>handle_call(X1, From, Ctx) -&gt; any()</tt></p>
+</div>
+
+<h3 class="function"><a name="handle_cast-2">handle_cast/2</a></h3>
+<div class="spec">
+<p><tt>handle_cast(X, Ctx) -&gt; any()</tt></p>
+</div>
+
+<h3 class="function"><a name="handle_info-2">handle_info/2</a></h3>
+<div class="spec">
+<p><tt>handle_info(X1, X2) -&gt; any()</tt></p>
+</div>
+
+<h3 class="function"><a name="init-1">init/1</a></h3>
+<div class="spec">
+<p><tt>init(Project) -&gt; any()</tt></p>
+</div>
+
+<h3 class="function"><a name="search-3">search/3</a></h3>
+<div class="spec">
+<p><tt>search(Project, Table, Search) -&gt; Result</tt>
+<ul class="definitions"><li><tt>Project = string()</tt></li><li><tt>Table = issue | message</tt></li><li><tt>Search = <a href="#type-proplist">proplist()</a></tt></li><li><tt>Result = {Columns, [<a href="#type-issues">issues()</a>]}</tt></li><li><tt>Columns = [atom()]</tt></li></ul></p>
+</div><p><p>Search for issues or messages according to a search description.
+  </p>
+  <p><code>Search</code> may contain the following search descriptors:</p>
+  <dl>
+  <dt><code>{columns, [atom()]} | {columns, all}</code></dt>
+  <dd>Specify the columns needed in the result.</dd>
+  <dt><code>{search, Text}</code></dt>
+  <dd>Specify some text that should be present in all results.
+  This implies a full-text search on all text fields.</dd>
+  <dt><code>{filter, [{Column, Value}]} </code></dt>
+  <dd>Specify values of columns that must be kept in the result.</dd>
+  </dl>
+ </p>
+
+<h3 class="function"><a name="start-1">start/1</a></h3>
+<div class="spec">
+<p><tt>start(Directory::<a href="#type-filename">filename()</a>) -&gt; any()</tt><br></p>
+</div>
+
+<h3 class="function"><a name="stop-1">stop/1</a></h3>
+<div class="spec">
+<p><tt>stop(Directory::<a href="#type-filename">filename()</a>) -&gt; any()</tt><br></p>
+</div>
+
+<h3 class="function"><a name="terminate-2">terminate/2</a></h3>
+<div class="spec">
+<p><tt>terminate(X1, State) -&gt; any()</tt></p>
+</div>
+
+<h3 class="function"><a name="update-3">update/3</a></h3>
+<div class="spec">
+<p><tt>update(Project, X2::issue, Issue) -&gt; Result</tt>
+<ul class="definitions"><li><tt>Project = string()</tt></li><li><tt>Issue = <a href="#type-issue">issue()</a></tt></li><li><tt>Result = any()</tt></li></ul></p>
+</div><p>Update an existing issue or create a new one.
+  If the id of Issue is <code>undefined</code>, then a new issue is created.
+  Else the id is used to identify the issue to be updated.</p>
+<hr>
+
+<div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<p><i>Generated by EDoc, Feb 5 2013, 22:07:50.</i></p>
+</body>
+</html>

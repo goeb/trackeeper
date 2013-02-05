@@ -1,0 +1,2 @@
+{packages,[]}.
+{modules,[log,tke_appmod,tke_db,tke_html,tke_user]}.
