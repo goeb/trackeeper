@@ -1,18 +1,18 @@
 
 /* main page styles */
-body.body {
+body {
   font-family: sans-serif, Arial, Helvetica;
   background-color: white;
   color: #333;
-  margin: 0;
-}
-a[href]:hover {
-  color:blue;
-  text-decoration: underline;
+  /*margin: 0;*/
 }
 a[href], a[href]:link {
   color:blue;
   text-decoration: none;
+}
+a[href]:hover {
+  color:blue;
+  text-decoration: underline;
 }
 
 table.body {
@@ -433,7 +433,6 @@ textarea:focus, select:focus {
 
 /* vim: sts=2 sw=2 et
 */
-/* SHA: a04232a326156d381a782cccb31d6d3948546227 */
 
 .diff {
     color: grey;

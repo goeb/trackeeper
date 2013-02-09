@@ -33,7 +33,8 @@ list_issues(Project_name, Query_params) ->
 get_colspec(Query_params) ->
     Colspec = proplists:get_value(colspec, Query_params),
     case Colspec of
-        undefined -> all;
+        undefined -> default;
+        "all" -> all;
         _Else -> [list_to_atom(X) || X <- string:tokens(Colspec, "+")]
     end.
 

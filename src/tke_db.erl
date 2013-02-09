@@ -99,7 +99,7 @@ update(Project, issue, Issue) ->
 %% </p>
 %% <p><code>Search</code> may contain the following search descriptors:</p>
 %% <dl>
-%% <dt><code>{columns, [atom()]} | {columns, all}</code></dt>
+%% <dt><code>{columns, [atom()]} | {columns, all} | {columns, default}</code></dt>
 %% <dd>Specify the columns needed in the result.</dd>
 %% <dt><code>{search, Text}</code></dt>
 %% <dd>Specify some text that should be present in all results.
@@ -230,6 +230,7 @@ handle_call({search, issue, Search_description}, _From, Ctx) ->
     Columns = proplists:get_value(columns, Search_description),
     case Columns of
         all -> Needed_columns = get_columns(Ctx, issue);
+        default -> Needed_columns = get_default_columns(Ctx, issue);
         Needed_columns -> ok
     end,
 
@@ -524,6 +525,9 @@ get_columns(Ctx, issue) ->
     get_columns_automatic() ++ get_ordered_keys(Columns, []).
 
 get_columns_automatic() -> [id, ctime, mtime, author].
+
+get_default_columns(Ctx, issue) ->
+    proplists:get_value(default_display, Ctx#project.structure).
 
 %% Return the ordered list of keys of the given proplist.
 %% This is not available from the proplists module

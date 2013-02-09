@@ -4,39 +4,46 @@ REST API
 http://localhost:8000/
 
 GET
-    /                         : list of projects
+    /                     : list of projects
 
-    /projectName/             : home page of project
-    /projectName/issue/[list] : list of issues
+    /project/             : home page of project
+    /project/issue/[list] : list of issues
         optional query string :
         search=text
         sort=id+title-owner : id ascending, then title ascending, then owner descending
         colspec=Stars+ID+Type+Status+Priority+Owner+Summary
-        filter=label%3Av1.0+status%3Aopen+cc%3Ayyyyyyyyyyyuuuu
+            list of columns shown
+        filter=label:v1.0+status:open+cc:yyyyyyyyyyyuuuu
+            select issues after the values of their fields
         
-    /projectName/issue/N      : details of issue N
-    /projectName/issue/search : search form
-    /projectName/issue/new    : form for adding a new issue
+    /project/issue/N      : details of issue N
+    /project/issue/search : search form
+    /project/issue/new    : form for adding a new issue
 
     ? question here : are users global to all projects or local per project?
-    /projectName/user/John Smith : details of user John Smith
-    /projectName/login        : login form
+    /user/John Smith : details of user John Smith
+    /login           : login form
 
-    /projectName/structure    : form for modifying database structure
-        add/delete field
+    /project/structure    : form for modifying database structure
+        add/delete fields
         add/delete values in predefined lists
 
-POST
-    /projectName/issue/new    : add new issue
-    /projectName/issue/N      : modify issue N
-    /projectName/structure    : modify database structure
+    /projet/msg/1234  : display message 1234
 
-    ? same question...
+POST
+    /project/issue/new    : add new issue
+    /project/issue/N      : modify issue N
+    /project/structure    : modify database structure
+
+    /project/msg/1234
+        status=dead       : in this status, the message will not be shown
+        status=alive
+
     /login
         user=
         password=
         result: list of projects
-    /projectName/user/John Smith : modify user John Smith's details
+    /user/John Smith : modify user John Smith's details
 
 
 
