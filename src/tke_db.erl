@@ -44,6 +44,7 @@
 
 -export([get/3, update/3, search/3]).
 -export([get_columns_automatic/0, get_column_properties/2]).
+-export([serialize_id/1]).
 
 -include("tke_db.hrl").
 -record(project, {name, issues, messages, history, structure}).
@@ -157,7 +158,8 @@ handle_call({update, Issue}, _From, Ctx) ->
     Timestamp = get_timestamp(),
     case Id0 of 
         undefined ->
-            Id = get_new_id(Ctx#project.issues),
+            {Longid, Shortid} = create_new_id(Ctx#project.issues, Issue),
+            Id = Shortid,
             % ctime
             Ctime = Timestamp,
             % author
@@ -371,12 +373,16 @@ load_from_files(Dir, [_F | Others], Messages, History) ->
     load_from_files(Dir, Others, Messages, History).
 
 
+serialize_id(Id) when is_integer(Id) -> integer_to_list(Id);
+serialize_id(Id) when is_list(Id) -> Id;
+serialize_id(_Id) -> "error".
 
 %% write to disk what has been modified
 sync(Ctx, I) when element(1, I) == issue -> 
     log:debug("syncing..."),
-    Id = integer_to_list(get_value(Ctx, issue, id, I)),
-    Dirname = Ctx#project.name ++ "/" ++ Id,
+    Id = get_value(Ctx, issue, id, I),
+    Id_str = serialize_id(Id),
+    Dirname = Ctx#project.name ++ "/" ++ Id_str,
     file:make_dir(Dirname),
     Filename = Dirname ++ "/issue",
     % convert record-like tuple to proplist
@@ -385,7 +391,7 @@ sync(Ctx, I) when element(1, I) == issue ->
 
 sync(Ctx, M = #message{}) ->
     log:debug("syncing message: ~p", [M]),
-    Issue = integer_to_list(M#message.issue),
+    Issue = serialize_id(M#message.issue),
     Id = integer_to_list(M#message.id),
     Dirname = Ctx#project.name ++ "/" ++ Issue,
     Filename = Dirname ++ "/msg." ++ Id,
@@ -393,7 +399,7 @@ sync(Ctx, M = #message{}) ->
 
 sync(Ctx, H = #history{}) ->
     log:debug("syncing history: ~p", [H]),
-    Issue = integer_to_list(H#history.issue),
+    Issue = serialize_id(H#history.issue),
     Id = integer_to_list(H#history.id),
     Dirname = Ctx#project.name ++ "/" ++ Issue,
     Filename = Dirname ++ "/his." ++ Id,
@@ -412,6 +418,15 @@ sync_file(Filename, Data) ->
 code_change(_, _, _) -> ok.
 handle_info(_, _) -> ok.
 terminate(shutdown, _State) -> ok.
+
+create_new_id(Table, Contents) ->
+    Longid = tke_hash:create(Contents),
+    % check if H already exists TODO
+    % ets:lookup(Table, Key),
+    Shortid = string:substr(Longid, length(Longid)-2, 3),
+    % if short id already exists, then add 1 char TODO
+    log:debug("Longid=~s, Shortid=~s", [Longid, Shortid]),
+    {Longid, Shortid}.
 
 %% Get new id functions for issue or message
 get_new_id(Table) -> get_max_id(Table, ets:first(Table), 0) + 1.

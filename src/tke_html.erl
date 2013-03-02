@@ -242,7 +242,7 @@ title_issue(Issue) ->
         undefined -> % case of new issue
             Title = "Create new issue";
         Id0 -> 
-            Id = integer_to_list(Id0),
+            Id = tke_db:serialize_id(Id0),
             Title = "Issue " ++ Id
     end,
     {ehtml, {h1, [], Title}}.

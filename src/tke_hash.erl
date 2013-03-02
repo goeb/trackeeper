@@ -5,9 +5,9 @@
 %%%
 
 -module(tke_hash).
--export([create_hash/1]).
+-export([create/1]).
 
-create_hash(Contents) ->
+create(Contents) ->
     Bin = term_to_binary(Contents),
     Ref = term_to_binary(make_ref()),
     Concat = << Bin/bytes, Ref/bytes>>,
