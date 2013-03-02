@@ -301,6 +301,7 @@ load_project_file(Project) ->
     File = Project ++ "/project",
     {ok, Binary} = file:read_file(File),
     Term = decode_contents(Binary),
+    log:debug("load_project_file(~p): done.", [Project]),
     Term.
 
 load_issues(Ctx) ->

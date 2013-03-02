@@ -5,6 +5,7 @@ http://localhost:8000/
 
 GET
     /                     : list of projects
+    /new                  : form for creating new project
 
     /project/             : home page of project
     /project/issue/[list] : list of issues
@@ -31,6 +32,7 @@ GET
     /projet/msg/1234  : display message 1234
 
 POST
+    /project              : create new project
     /project/issue/new    : add new issue
     /project/issue/N      : modify issue N
     /project/structure    : modify database structure
@@ -75,5 +77,32 @@ how the client should indicate its choice ?
 
 -- user authentication
 
+GET
+    /sessions/new
+
+POST
+    /sessions/new
+
+DELETE
+    /sessions/<session-id>
+
+
 Login HTML page 
+
+
+Install
+--------
+
+$TKE_ROOT/
+    erlang
+    yaws
+
+$TKE_DATA/ # contains projects and configuration
+           # everything that needs to be backuped
+    yaws.conf
+    users configuration
+    projects
+    depends on $TKE_ROOT/
+    
+
 
