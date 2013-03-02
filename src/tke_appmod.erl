@@ -69,10 +69,9 @@ parse_filter(Filter) ->
 
 
 % show page for issue N
-% N = list(char)
-show_issue(Project, N, _Query) ->
-    log:debug("show_issue(~p, ~p, ~p)", [Project, N, _Query]),
-    Issue_id = tke_db:serialize_id(N),
+% Issue_id = list(char)
+show_issue(Project, Issue_id, _Query) ->
+    log:debug("show_issue(~p, ~p, ~p)", [Project, Issue_id, _Query]),
     I = tke_db:get(Project, issue, Issue_id),
     Id = proplists:get_value(id, I),
     M = tke_db:search(Project, message, Id),
@@ -133,14 +132,14 @@ http_post([Project, "issue", N], Issue) ->
         "new" -> % set id = undefined
             I3 = [{id, undefined} | I2];
         N -> 
-            Id = tke_db:serialize_id(N),
+            Id = N,
             I3 = [{id, Id} | I2]
     end,
     {ok, Id4} = tke_db:update(Project, issue, I3),
     log:debug("Id4=~p", [Id4]),
     case N of
         "new" ->
-            Redirect_url = "/" ++ Project ++ "/issue/" ++ tke_db:serialize_id(Id4),
+            Redirect_url = "/" ++ Project ++ "/issue/" ++ Id4,
             log:debug("redirect to: " ++ Redirect_url),
             {redirect, Redirect_url};
         N -> show_issue(Project, N, "")
