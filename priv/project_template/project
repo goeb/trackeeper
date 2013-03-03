@@ -1,0 +1,11 @@
+[{issue_columns,[{title,{}},
+                 {status,{select,["open","closed","deleted"]}},
+                 {owner,{select,user}},
+                 {priority,{select,["high", "medium", "low", "very low"]}},
+                 {tags,{select_multiple,["tag 1","tag 2", "tag 3"]}}]},
+ {default_display, [id, mtime, title, status, priority, owner]}
+].
+
+% hidden comluns are: id, ctime, mtime, author
+% columns names are used for storage, display, and edit form.
+% columns properties are used for edit form only.

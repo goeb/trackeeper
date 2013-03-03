@@ -178,7 +178,19 @@ http_post(["login"], Login) ->
             Cookie_item = yaws_api:setcookie("sid", Cookie, "/")
     end,
     % TODO handle login
-    [tke_html:login_page(), Cookie_item].
+    [tke_html:login_page(), Cookie_item];
+
+http_post(["new"], Post_data) -> 
+    Project_name = proplists:get_value("name", Post_data),
+    case tke_db:create_project(Project_name) of
+        ok ->
+            Redirect_url = "/" ++ Project_name ++ "/issue/",
+            log:debug("redirect to: " ++ Redirect_url),
+            {redirect, Redirect_url};
+        _Else ->
+            [{html, "500 - Internal Server Error"}, {status, 500}]
+    end.
+
 
 % convert multipart list to a proplist
 consolidate_multipart([], Acc) -> 

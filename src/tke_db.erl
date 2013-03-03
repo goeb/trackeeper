@@ -43,6 +43,7 @@
 -export([code_change/3, handle_info/2, terminate/2]).
 
 -export([get/3, update/3, search/3]).
+-export([create_project/1]).
 -export([get_columns_automatic/0, get_column_properties/2, keep_columns/3]).
 
 -include("tke_db.hrl").
@@ -110,6 +111,9 @@ update(Project, issue, Issue) ->
 %%
 search(Project, Table, Search) ->
     gen_server:call(registered_name(Project), {search, Table, Search}).
+
+create_project(Project) -> error. % TODO
+
 
 %% Get properties of a column
 %% (such as multi-select, etc.)
