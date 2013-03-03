@@ -24,25 +24,39 @@ list_issues(Project_name, Query_params) ->
     Sorting = get_sorting(Query_params),
     Filter = get_filter(Query_params),
     Search_text = get_search_text(Query_params),
+    Module = get_format(Query_params),
     {Columns, Issues} = tke_db:search(Project_name, issue,
         [{columns, Colspec}, {sort, Sorting}, {search, Search_text}]),
-    [tke_html:header(Project_name),
-     tke_html:format_table_of_issues(Columns, Issues),
-     tke_html:footer(Project_name)
+    log:debug("apply Module=~p", [Module]),
+    [apply(Module, header, [Project_name]),
+     apply(Module, format_table_of_issues, [Columns, Issues]),
+     apply(Module, footer, [Project_name])
     ].
 
 get_colspec(Query_params) ->
-    Colspec = proplists:get_value(colspec, Query_params),
+    Colspec = proplists:get_value("colspec", Query_params),
     case Colspec of
         undefined -> default;
         "all" -> all;
         _Else -> [list_to_atom(X) || X <- string:tokens(Colspec, "+")]
     end.
 
+get_format(Query_params) ->
+    log:debug("Q=~p", [Query_params]),
+    Format = proplists:get_value("format", Query_params),
+    case Format of
+        "erlang" -> F = tke_erlang;
+        "json" -> F = tke_json;
+        _Default -> F = tke_html
+    end,
+    log:debug("Format=~p", [F]),
+    F.
+
+
 %% sort=id+title-owner
 %% => id ascending, then title ascending, then owner descending
 get_sorting(Query_params) ->
-    Sorting = proplists:get_value(sort, Query_params),
+    Sorting = proplists:get_value("sort", Query_params),
     case Sorting of
         undefined -> undefined;
         _Else -> [list_to_atom(X) || X <- string:tokens(Sorting, "+")]
@@ -51,12 +65,12 @@ get_sorting(Query_params) ->
 %% filter=label:v1.0+status:open
 %% => [{label, "v1.0"}, {status, "open"}]
 get_filter(Query_params) ->
-    Filter = proplists:get_value(filter, Query_params),
+    Filter = proplists:get_value("filter", Query_params),
     parse_filter(Filter).
 
 %% get the searched text from the query string
 get_search_text(Query_params) ->
-    Search_text = proplists:get_value(search, Query_params),
+    Search_text = proplists:get_value("search", Query_params),
     Search_text.
 
 parse_filter(undefined) -> undefined;
@@ -70,15 +84,17 @@ parse_filter(Filter) ->
 
 % show page for issue N
 % Issue_id = list(char)
-show_issue(Project, Issue_id, _Query) ->
-    log:debug("show_issue(~p, ~p, ~p)", [Project, Issue_id, _Query]),
+show_issue(Project, Issue_id, Query) ->
+    log:debug("show_issue(~p, ~p, ~p)", [Project, Issue_id, Query]),
+    Module = get_format(Query),
     I = tke_db:get(Project, issue, Issue_id),
-    Id = proplists:get_value(id, I),
-    M = tke_db:search(Project, message, Id),
-    H = tke_db:search(Project, history, Id),
     case I of
-        undefined -> Html = no_resource(Project);
-        I -> Html = tke_html:show_issue(Project, I, M, H)
+        undefined -> Html = apply(Module, resource_not_found, []);
+        I ->
+            Id = proplists:get_value(id, I),
+            M = tke_db:search(Project, message, Id),
+            H = tke_db:search(Project, history, Id),
+            Html = apply(Module, show_issue, [Project, I, M, H])
     end,
     %log:debug("Html=~p", [Html]),
     Html.
@@ -95,7 +111,9 @@ parse_query_string(Query_string) ->
     log:debug("Query_string=~p", [Query_string]),
     Q = string:tokens(Query_string, "&"),
     Q2 = [ string:tokens(X, "=") || X <- Q],
-    [{list_to_atom(X), Y} || [X, Y] <- Q2]. % make a proplist
+    % TODO protect from denial of service by restricting list_to_atom
+    % to only allowed atoms
+    [{X, Y} || [X, Y] <- Q2]. % make a proplist
 
 
 serve('GET', Url_tokens, Http_req) -> 
