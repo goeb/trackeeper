@@ -28,10 +28,7 @@ list_issues(Project_name, Query_params) ->
     {Columns, Issues} = tke_db:search(Project_name, issue,
         [{columns, Colspec}, {sort, Sorting}, {search, Search_text}]),
     log:debug("apply Module=~p", [Module]),
-    [apply(Module, header, [Project_name]),
-     apply(Module, format_table_of_issues, [Columns, Issues]),
-     apply(Module, footer, [Project_name])
-    ].
+    apply(Module, list_issues, [Project_name, Columns, Issues]).
 
 get_colspec(Query_params) ->
     Colspec = proplists:get_value("colspec", Query_params),
@@ -45,9 +42,9 @@ get_format(Query_params) ->
     log:debug("Q=~p", [Query_params]),
     Format = proplists:get_value("format", Query_params),
     case Format of
-        "erlang" -> F = tke_erlang;
-        "json" -> F = tke_json;
-        _Default -> F = tke_html
+        "erlang" -> F = tke_rendering_erlang;
+        "json" -> F = tke_rendering_json;
+        _Default -> F = tke_rendering_html
     end,
     log:debug("Format=~p", [F]),
     F.

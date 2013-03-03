@@ -43,7 +43,7 @@
 -export([code_change/3, handle_info/2, terminate/2]).
 
 -export([get/3, update/3, search/3]).
--export([get_columns_automatic/0, get_column_properties/2]).
+-export([get_columns_automatic/0, get_column_properties/2, keep_columns/3]).
 
 -include("tke_db.hrl").
 -record(project, {name, issues, messages, history, structure}).
@@ -278,7 +278,9 @@ keep_columns([], _Columns, Acc) -> Acc;
 keep_columns([Plist | Others], Columns, Acc) ->
     log:debug("keep_columns: Plist=~p, Columns=~p", [Plist, Columns]),
     {Lists, _Rest} = proplists:split(Plist, Columns),
-    keep_columns(Others, Columns, [Lists | Acc]).
+    % remove the [x] as we only have unique keys here
+    L2 = [X || [X] <- Lists],
+    keep_columns(Others, Columns, [L2 | Acc]).
 
 
 handle_cast(stop, Ctx) -> {stop, normal, Ctx};

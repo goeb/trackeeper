@@ -1,12 +1,17 @@
 %%% ----------------------------------
 %%% Copyright Frederic Hoerni 2012
 %%% ----------------------------------
-%%% Format HTML pages
-%%%
 
--module(tke_html).
+%%
+%% @doc Module for HTML rendering of TKE
+%%
+%% 
+%%
+%%
 
--export([resource_not_found/0, header/1, format_table_of_issues/2, footer/1]).
+-module(tke_rendering_html).
+
+-export([resource_not_found/0, list_issues/3]).
 -export([show_issue/4]).
 -export([login_page/0]).
 
@@ -224,6 +229,12 @@ edition_select(Project, Name, Value, [Option | Rest], Acc, multiple_no) ->
 edition_textarea(_P, Name, Value) ->
     {textarea, [{name, Name}], to_string(Value)}.
 
+% return EHTML for displaying a list of issues
+list_issues(Project, Columns, Issues) ->
+    [   header(Project),
+        format_table_of_issues(Columns, Issues),
+        footer(Project)
+    ].
 
 % return EHTML for diaplying issue
 show_issue(Project, Issue, Messages, History) ->
