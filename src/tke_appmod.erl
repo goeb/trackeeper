@@ -181,7 +181,7 @@ http_post(["login"], Login) ->
     [tke_html:login_page(), Cookie_item];
 
 http_post(["new"], Post_data) -> 
-    Project_name = proplists:get_value("name", Post_data),
+    Project_name = proplists:get_value(name, Post_data),
     case tke_db:create_project(Project_name) of
         ok ->
             Redirect_url = "/" ++ Project_name ++ "/issue/",

@@ -112,7 +112,23 @@ update(Project, issue, Issue) ->
 search(Project, Table, Search) ->
     gen_server:call(registered_name(Project), {search, Table, Search}).
 
-create_project(Project) -> error. % TODO
+create_project(Project) ->
+    log:debug("create_project(~p)", [Project]),
+    case file:make_dir(Project) of
+        ok -> % populate with template project file
+            case file:copy("priv/project_template/project", Project ++ "/" ++ project) of
+                {ok, BytesCopied} ->
+    %% TODO copy header, footer
+                    % start a db server for this one
+                    start(Project);
+                {error, Reason} ->
+                    log:error("Could not copy 'project' file: ~p", [Reason]),
+                    {error, Reason}
+            end;
+        {error, Reason} ->
+            log:error("Could not create directory '~p': ~p", [Project, Reason]),
+            {error, Reason}
+    end.
 
 
 %% Get properties of a column
