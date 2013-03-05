@@ -12,11 +12,8 @@ start() ->
     tke_user:start(),
     ok.
 
-% action when no project name is given in the request
-no_project_name() -> tke_html:resource_not_found(). % not found
-
 % action when no ressource is given
-no_resource(_Project_name) -> tke_html:resource_not_found().
+no_resource(_Project_name) -> tke_rendering_html:resource_not_found().
 
 list_issues(Project_name, Query_params) ->
     log:info("list_issues(~p, issues, list, query=~p)\n", [Project_name, Query_params]),
@@ -97,7 +94,8 @@ show_issue(Project, Issue_id, Query) ->
     Html.
 
 new_issue(Project, _Query) ->
-    tke_html:show_issue(Project, tke_db:get(Project, issue, empty), [], []).
+    % TODO handle format (erlanf, html, etc.)
+    tke_rendering_html:show_issue(Project, tke_db:get(Project, issue, empty), [], []).
 
 
 % make a proplist from the query string
@@ -227,15 +225,15 @@ consolidate_multipart([{head,{Name,_Headers}}, {body, Value} | Others], Acc) ->
 % Project = name of project = list(char)
 % Resource = "issue" | TODO
 % Query = proplists of items of the HTTP query string
-http_get([], _Query) -> tke_html:resource_not_found();
-http_get(["login"], _Query) -> tke_html:login_page();
+http_get([], _Query) -> tke_rendering_html:resource_not_found();
+http_get(["login"], _Query) -> tke_rendering_html:login_page();
 http_get([Project], _Query) -> no_resource(Project);
 http_get([Project, "issue"], Query) -> list_issues(Project, Query);
 http_get([Project, "issue", "list"], Query) -> list_issues(Project, Query);
 http_get([Project, "issue", "new"], Query) -> new_issue(Project, Query);
 http_get([Project, "issue", N], Query) -> show_issue(Project, N, Query);
 http_get(A, B) -> log:info("Invalid GET request ~p ? ~p", [A, B]),
-    tke_html:resource_not_found().
+    tke_rendering_html:resource_not_found().
 
 out(A) ->
     check_session(A),

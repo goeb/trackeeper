@@ -38,6 +38,8 @@
 -module(tke_db).
 -behaviour(gen_server).
 
+-include_lib("eunit/include/eunit.hrl").
+
 -export([start/1, stop/1]).
 -export([init/1, handle_call/3, handle_cast/2]).
 -export([code_change/3, handle_info/2, terminate/2]).
@@ -437,12 +439,38 @@ terminate(shutdown, _State) -> ok.
 
 create_new_id(Table, Contents) ->
     Longid = tke_hash:create(Contents),
-    % check if H already exists TODO
-    % ets:lookup(Table, Key),
-    Shortid = string:substr(Longid, length(Longid)-2, 3),
-    % if short id already exists, then add 1 char TODO
+    Shortid = create_short_id(Table, Longid, 3),
+    case Shortid of
+        error -> % Longid probably already exixting
+                 % recurse until a non used longid is found
+                 create_new_id(Table, Contents);
+        _Else -> ok
+    end,
     log:debug("Longid=~s, Shortid=~s", [Longid, Shortid]),
     {Longid, Shortid}.
+
+create_short_id(Table, Longid, N) when N > length(Longid) -> error;
+create_short_id(Table, Longid, N) ->
+    Shortid = string:substr(Longid, length(Longid)-(N-1), N),
+    X = ets:lookup(Table, Shortid),
+    log:debug("create_short_id: Shortid=~p, lookup=~p", [Shortid, X]),
+    case X of
+        [] -> % no previously existing such shortid
+            Shortid;
+        _Else -> % such shortid already existing
+            create_short_id(Table, Longid, N+1)
+    end.
+
+create_short_id_test() ->
+    T = ets:new(xxx, []),
+    ets:insert(T, {"678"}),
+    error = create_short_id(T, "12345678", 9),
+    "78" = create_short_id(T, "12345678", 2),
+    ets:insert(T, {"78"}),
+    "5678" = create_short_id(T, "12345678", 2),
+    "76" = create_short_id(T, "9876", 2),
+    ets:delete(T).
+
 
 %% Get new id functions for issue or message
 get_new_id(Table) -> get_max_id(Table, ets:first(Table), 0) + 1.
