@@ -8,8 +8,8 @@ Roadmap
 -------
 
 v0.1
-- create, edit issues, comments
-- full-text search
+- create, edit issues, comments -> ok
+- full-text search              -> ok
 - power up multi projects
 - install procedure on Linux
 - web interface for creating new project
@@ -19,9 +19,10 @@ v0.1
 - user's guide
 - developer's guide
 - unit tests
-- functional tests (curl)
+- functional tests (curl + foramt=erlang)
 
 v0.2
+- file upload
 - full-contents view (eveything on a single HTML page, for PDF export, etc.)
 - install procedure on Windows
 - configuration of web interface (menus, pre-defined searchs)

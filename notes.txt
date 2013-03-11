@@ -106,3 +106,25 @@ $TKE_DATA/ # contains projects and configuration
     
 
 
+Use cases
+------------
+
+shell>
+    tke init 
+    tke server p1 ...
+        => start server for team collaboration
+           with one or several projects
+
+    tke ui myclone
+        => launch a web browser and point to the web interface (localhost)
+    tke add issue|message
+        => edit in text editor an issue or message
+    tke list
+    etc.
+    
+    tke clone [--proxy url] https://xxx/pname myclone
+    tke push myclone https://xxx/pname
+
+    
+
+
