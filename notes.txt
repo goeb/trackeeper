@@ -96,34 +96,29 @@ Install
 $TKE_ROOT/
     erlang
     yaws
-
-$TKE_DATA/ # contains projects and configuration
-           # everything that needs to be backuped
-    yaws.conf
-    users configuration
-    projects
-    depends on $TKE_ROOT/
-    
+    tke itself
 
 
 Use cases
 ------------
 
 shell>
-    tke init 
-    tke server p1 ...
+    tke init
+        => create new project
+
+    tke daemon p1 ...
         => start server for team collaboration
            with one or several projects
 
-    tke ui myclone
-        => launch a web browser and point to the web interface (localhost)
-    tke add issue|message
-        => edit in text editor an issue or message
-    tke list
+    tke ui myclone ...
+        => start server listening on 127.0.0.1
+           launch a web browser and point to the web interface (localhost)
+
+    tke list --url localhost:8000
     etc.
     
-    tke clone [--proxy url] https://xxx/pname myclone
-    tke push myclone https://xxx/pname
+    tke clone [--proxy url] localhost:8000/project myclone
+    tke push myclone localhost:8000/project
 
     
 

@@ -630,28 +630,31 @@ full_text_search(Table, Text) ->
     full_text_search(Table, First, Text, []).
 
 
-full_text_search(Table, '$end_of_table', Text, Found_issues) -> Found_issues;
-full_text_search(Table, Key, Text, Found_issues) ->
+full_text_search(Table, '$end_of_table', Pattern, Found_issues) -> Found_issues;
+full_text_search(Table, Key, Pattern, Found_issues) ->
     [Item] = ets:lookup(Table, Key),
     % perform the search on the Key tuple
     log:debug("full_text_search: Key=~p", [Key]),
-    case full_text_match(Item, Text, size(Item)) of
+    case full_text_match(Item, Pattern, size(Item)) of
         found -> Found = [Item | Found_issues];
         not_found -> Found = Found_issues
     end,
     Next = ets:next(Table, Key),
-    full_text_search(Table, Next, Text, Found).
+    full_text_search(Table, Next, Pattern, Found).
 
-full_text_match(Key, Text, 0) -> not_found;
-full_text_match(Key, Text, N) ->
-    Item = element(N, Key),
+%% Data = tuple() = the contents in which the search is performed
+%% Pattern = the pattern that is searched for
+full_text_match(Data, Pattern, 0) -> not_found;
+full_text_match(Data, Pattern, N) ->
+    Item = element(N, Data),
     if
-        is_list(Item) -> Index = string:str(Item, Text);
+        is_list(Item) -> Index = string:str(string:to_lower(Item), 
+                                            string:to_lower(Pattern));
         true -> Index = 0
     end,
     case Index of
         0 -> % not found, iterate
-            full_text_match(Key, Text, N-1);
+            full_text_match(Data, Pattern, N-1);
         Index -> found
     end.
     
