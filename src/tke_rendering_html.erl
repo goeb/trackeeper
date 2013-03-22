@@ -241,9 +241,10 @@ show_issue(Project, Issue, Messages, History) ->
     log:debug("show_issue..."),
     [   header(Project),
         title_issue(Issue),
-        edition_form(Project, Issue),
+        {ehtml, details(Project, Issue, readonly, [])},
         created_by(Issue),
         messages(Messages, []),
+        edition_form(Project, Issue),
         history(History, []),
         footer(Project)
     ].
@@ -276,26 +277,35 @@ edition_form(Project, Issue) ->
                 {action, ""},
                 {enctype, "multipart/form-data"}
             ],
-            [details(Project, Issue, []),
+            [details(Project, Issue, rw, []),
              edition_message(),
              submit()
             ]
         }}.
 
 % fields of an issue
-details(_Project, [], Html_rows_acc) -> lists:reverse(Html_rows_acc);
+% Mode = readonly | rw
+details(_Project, [], _Mode, Html_rows_acc) -> lists:reverse(Html_rows_acc);
 % id is not editable
-details(Project, [{Name, Value} | Others], Acc) ->
+details(Project, [{Name, Value} | Others], Mode, Acc) ->
     case lists:member(Name, tke_db:get_columns_automatic()) of
         true -> % automatic fields are not editable
-            details(Project, Others, Acc);
+            details(Project, Others, Mode, Acc);
         _Else ->
             P = tke_db:get_column_properties(Project, Name),
             Name_str = atom_to_list(Name),
-            Ehtml = {'div', [{class, "field_" ++ Name_str}], [
+            case Mode of
+                rw ->
+                    Ehtml = {'div', [{class, "field_" ++ Name_str}], [
                         {span, [{class, "label_" ++ Name_str}], Name_str},
-                        {span, [], edition_field(Project, Name, Value, P)}]},
-            details(Project, Others, [Ehtml | Acc])
+                        {span, [], edition_field(Project, Name, Value, P)}]};
+                readonly ->
+                    Ehtml = {'div', [{class, "field_" ++ Name_str}], [
+                        {span, [{class, "label_" ++ Name_str}], Name_str},
+                        {span, [], to_string(Value)}]},
+                    log:debug("readonly:Ehtml=~p", [Ehtml])
+            end,
+            details(Project, Others, Mode, [Ehtml | Acc])
     end.
 
 edition_message() ->
