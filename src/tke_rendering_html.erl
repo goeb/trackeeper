@@ -276,12 +276,10 @@ edition_form(Project, Issue) ->
                 {action, ""},
                 {enctype, "multipart/form-data"}
             ],
-
-                {table, [{class, "form"}], [
-                    details(Project, Issue, []),
-                    edition_message(),
-                    submit()
-                ]}  % end of table
+            [details(Project, Issue, []),
+             edition_message(),
+             submit()
+            ]
         }}.
 
 % fields of an issue
@@ -293,14 +291,17 @@ details(Project, [{Name, Value} | Others], Acc) ->
             details(Project, Others, Acc);
         _Else ->
             P = tke_db:get_column_properties(Project, Name),
-            Ehtml = {tr, [], [{th, [], atom_to_list(Name)},
-                              {td, [], edition_field(Project, Name, Value, P)}]},
+            Name_str = atom_to_list(Name),
+            Ehtml = {'div', [{class, "field_" ++ Name_str}], [
+                        {span, [{class, "label_" ++ Name_str}], Name_str},
+                        {span, [], edition_field(Project, Name, Value, P)}]},
             details(Project, Others, [Ehtml | Acc])
     end.
 
 edition_message() ->
-    {tr, [], [{th, [], "Description: "},
-              {td, [],
+    {'div', [{class, "message"}], [
+            {span, [{class, "label_message"}], "Description: "},
+            {span, [],
                   {textarea, [
                           {name, message},
                           {wrap, "hard"}, {rows, "10"}, {cols, "80"}

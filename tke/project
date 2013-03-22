@@ -2,11 +2,12 @@
                  {status,{select,["open","closed","deleted"]}},
                  {owner,{select,user}},
                  {priority,{select,["high", "medium", "low", "very low"]}},
-                 {summary,{textarea}},
                  {tags,{select_multiple,["v4.0","v4.1", "v5.0"]}}]},
  {default_display, [id, mtime, title, status, priority, owner]}
 ].
 
-% hidden comluns are: id, ctime, author
+
+% hidden comluns are: id, ctime, mtime, author
 % columns names are used for storage, display, and edit form.
 % columns properties are used for edit form only.
+% Example of textarea: {summary,{textarea}},

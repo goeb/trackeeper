@@ -22,52 +22,37 @@ table.body {
   border-collapse: separate;
 }
 
-td.page-header-left {
-  padding: 5px;
-  border-bottom: 1px solid #444;
-}
-td.sidebar {
-  padding: 1px 0 0 1px;
-  white-space: nowrap;
+/**
+ * issue edition form
+ **/
+.field_title
+
+.label_title, .label_status, .label_owner, .label_priority, .label_summary, .label_tags, .label_message {
+    color: #338;
+    text-align: right;
+    vertical-align: top;
+    font-weight: normal;
+    white-space: nowrap;
+    padding-right: 5px;
+    margin-left: 10px;
 }
 
-/* don't display the sidebar when printing */
-@media print {
-    td.page-header-left {
-        display: none;
-    }
-    td.sidebar {
-        display: none;
-    }
-    .index-controls {
-        display: none;
-    }
-    #searchbox {
-        display: none;
-    }
+.field_title, .field_status, .field_owner, .field_priority, .field_summary, .field_tags {
+    float: left;
+    margin-left: 1em;
+    margin-right: 1em;
+    margin-top: 2px;
+    margin-bottom: 2px;
 }
 
-td.page-header-top {
-  padding: 5px;
-  border-bottom: 1px solid #444;
-}
-
-div#searchbox {
-  float: right;
-  padding-top: 1em;
-}
-
-div#searchbox input#search-text {
-  width: 10em;
+.message {
+    clear: both;
 }
 
 form {
   margin: 0;
 }
 
-textarea {
-    font-family: monospace;
-}
 
 td.sidebar p.classblock {
   padding: 2px 5px 2px 5px;
