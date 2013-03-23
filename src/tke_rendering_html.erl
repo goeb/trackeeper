@@ -258,9 +258,9 @@ title_issue(Issue) ->
         Id0 -> 
             Id = Id0,
             Title0 = proplists:get_value(title, Issue),
-            Title = "Issue " ++ Id ++ ": " ++ Title0
+            Title = "Issue #" ++ Id ++ ": " ++ Title0
     end,
-    {ehtml, {h1, [], Title}}.
+    {ehtml, {'div', [{class, "title"}], Title}}.
 
 created_by(Issue) ->
     Ctime = proplists:get_value(ctime, Issue),
