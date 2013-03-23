@@ -22,12 +22,16 @@ table.body {
   border-collapse: separate;
 }
 
+.summary {
+    border-style: solid;
+    border-width: 1px;
+    float: left;
+}
+
 /**
  * issue edition form
  **/
-.field_title
-
-.label_title, .label_status, .label_owner, .label_priority, .label_summary, .label_tags, .label_message {
+.label_title, .label_status, .label_owner, .label_priority, .label_summary, .label_tags, .label_message, .label_author, .label_mtime, .label_ctime, .label_id {
     color: #338;
     text-align: right;
     vertical-align: top;
