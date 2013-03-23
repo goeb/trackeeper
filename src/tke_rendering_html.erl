@@ -306,27 +306,42 @@ edition_form(Project, Issue) ->
                 {action, ""},
                 {enctype, "multipart/form-data"}
             ],
-            [details(Project, Issue, []),
+            [edit_fields(Project, Issue),
              edition_message(),
+             % TODO file upload
              submit()
             ]
         }}.
 
+delete_fields([], Proplist) -> Proplist;
+delete_fields([Key | Rest], Proplist) ->
+    New_list = proplists:delete(Key, Proplist),
+    delete_fields(Rest, New_list).
+
 % fields of an issue
-details(_Project, [], Html_rows_acc) -> lists:reverse(Html_rows_acc);
+edit_fields(Project, Issue) ->
+    I = delete_fields(tke_db:get_columns_automatic(), Issue),
+    {table, [], edit_fields(Project, I, [])}.
+
+edit_fields(_Project, [], Html_rows_acc) -> lists:reverse(Html_rows_acc);
 % id is not editable
-details(Project, [{Name, Value} | Others], Acc) ->
-    case lists:member(Name, tke_db:get_columns_automatic()) of
-        true -> % automatic fields are not editable
-            details(Project, Others, Acc);
-        _Else ->
-            P = tke_db:get_column_properties(Project, Name),
-            Name_str = atom_to_list(Name),
-            Ehtml = {'div', [{class, "field_" ++ Name_str}], [
-                     {span, [{class, "label_" ++ Name_str}], Name_str},
-                     {span, [], edition_field(Project, Name, Value, P)}]},
-            details(Project, Others, [Ehtml | Acc])
-    end.
+edit_fields(Project, [A , B | Rest], Ehtml_acc) ->
+    % case of 2 items. put them in a 'tr' row.
+    Row = {tr, [], [edit_field_cell(Project, A),
+                    edit_field_cell(Project, B)]},
+    edit_fields(Project, Rest, [Row | Ehtml_acc]);
+
+edit_fields(Project, [A], Ehtml_acc) ->
+    % case of 1 item
+    Row = {tr, [], [edit_field_cell(Project, A),
+                    {td, [], ""}]},
+    edit_fields(Project, [], [Row | Ehtml_acc]).
+
+edit_field_cell(Project, {Name, Value}) ->
+    P = tke_db:get_column_properties(Project, Name),
+    Name_str = atom_to_list(Name),
+    [{td, [{class, "label_" ++ Name_str}], Name_str},
+     {td, [], edition_field(Project, Name, Value, P)}].
 
 edition_message() ->
     {'div', [{class, "message"}], [
