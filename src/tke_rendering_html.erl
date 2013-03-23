@@ -107,26 +107,25 @@ resource_not_found() ->
     [{html, "404 - Resource not found"}, {status, 404}].
 
 messages([], Acc) ->
-    First = {tr, [], {th, [{colspan, "4"}, {class, "header"}], "Messages"}},
-    {ehtml, {table, [{class, "messages"}], [First|lists:reverse(Acc)]}};
+    {ehtml, {'div', [{class, "tk_msg_list"}], lists:reverse(Acc)}};
 messages([M | Messages], Acc) ->
     Author = proplists:get_value(author, M),
     Date = proplists:get_value(ctime, M),
     Id = proplists:get_value(id, M),
     Text = proplists:get_value(text, M, "no text"),
-    Head = {tr, [], [
-            {th, [], "msg." ++ to_string(Id)},
-            {th, [], "Author: " ++ to_string(Author)},
-            {th, [], "Date: " ++ date_to_string(Date)},
-            {th, [], "Bouton DELETE"}
+    Head = {'div', [{class, "tk_msg_header"}], [
+            {span, [{class, "tk_msg_id"}], "msg." ++ to_string(Id)},
+            {span, [{class, "tk_msg_author"}], to_string(Author)},
+            {span, [{class, "tk_msg_date"}], date_to_string(Date)},
+            {span, [{class, "tk_msg_del"}], "Bouton DELETE"}
         ]},
     case Text of
         "" -> Contents = [];
         _Else ->
-            Contents = {tr, [], {td, [{colspan, "4"}, {class, "content"}],
-                                 {pre, [], to_string(Text)}}}
+            Contents = {pre, [{class, "tk_msg_text"}], to_string(Text)}
     end,
-    messages(Messages, [Contents, Head | Acc]).
+    Msg_ehtml = {'div', [{class, "tk_msg"}], [Head, Contents]},
+    messages(Messages, [Msg_ehtml | Acc]).
 
 history([], Acc) ->
     First = {tr, [], {th, [{colspan, "4"}, {class, "header"}], "History"}},
@@ -324,10 +323,15 @@ edition_message() ->
             {span, [{class, "label_message"}], "Description: "},
             {span, [],
                   {textarea, [
-                          {name, message},
+                          {name, "message"},
                           {wrap, "hard"}, {rows, "10"}, {cols, "80"}
                       ], ""}
-              }]
+              },
+            {br, [], ""},
+            {input, [{type, "checkbox"},
+                     {onclick, "javascript:changeWrapping('message');"}], ""},
+            {span, [], "Enable long lines"}
+        ]
       }.
 
 submit() ->
