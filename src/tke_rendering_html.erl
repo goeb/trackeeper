@@ -275,20 +275,30 @@ created_by(Issue) ->
 
 %% summary
 %% Display fields of an issue (read-only)
-summary(Issue) ->
-    {ehtml, {'div', [{class, "summary"}], summary(Issue, [])}}.
-
 %% Do not include 'title' and 'id' in summary
+summary(Issue) ->
+    I1 = proplists:delete(title, Issue),
+    I2 = proplists:delete(id, I1),
+    {ehtml, {table, [{class, "summary"}], summary(I2, [])}}.
+
 summary([], Ehtml) -> lists:reverse(Ehtml);
-summary([{title, Value} | Others], Ehtml_acc) -> summary(Others, Ehtml_acc);
-summary([{id, Value} | Others], Ehtml_acc) -> summary(Others, Ehtml_acc);
-summary([{Name, Value} | Others], Ehtml_acc) ->
+summary([A, B | Rest], Ehtml_acc) ->
+    % case of 2 items. put them in a 'tr' row.
+    Row = {tr, [], [summary_cell(A),
+                    summary_cell(B)]},
+    summary(Rest, [Row | Ehtml_acc]);
+
+summary([A], Ehtml_acc) ->
+    % case of 1 item. put it in a 'tr' row.
+    Row = {tr, [], [summary_cell(A),
+                    {td, [], ""}]},
+    summary([], [Row | Ehtml_acc]).
+
+summary_cell({Name, Value}) ->
     Name_str = atom_to_list(Name),
-    Ehtml = [{span, [{class, "label_" ++ Name_str}], Name_str ++ ": "},
-             {span, [], to_string(Value) ++ "<br>\n"}
-            ],
-    %log:debug("readonly:Ehtml=~p", [Ehtml])
-    summary(Others, [Ehtml | Ehtml_acc]).
+    [{td, [{class, "label_" ++ Name_str}], Name_str ++ ": "},
+     {td, [{class, "value_" ++ Name_str}], to_string(Value)}
+    ].
 
 edition_form(Project, Issue) ->
     {ehtml, {form, [
