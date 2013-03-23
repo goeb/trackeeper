@@ -35,6 +35,8 @@ date_to_string(Timestamp) ->
     {{Y, Month, D},{H, Min, S}} = calendar:universal_time_to_local_time(Timestamp),
     date_to_string({{Y, Month, D},{H, Min, S}}).
 
+to_string([A]) when is_list(A) -> to_string(A);
+to_string([A|B]) when is_list(A) -> to_string(A) ++ ", " ++ to_string(B);
 to_string(X) when is_list(X) -> X;
 to_string(X) when is_binary(X) -> binary_to_list(X);
 to_string(X) when is_integer(X) -> [R] = io_lib:format("~B", [X]), R;
@@ -242,7 +244,7 @@ show_issue(Project, Issue, Messages, History) ->
     [   header(Project),
         title_issue(Issue),
         summary(Issue),
-        created_by(Issue),
+        %created_by(Issue),
         messages(Messages, []),
         edition_form(Project, Issue),
         history(History, []),
@@ -255,7 +257,8 @@ title_issue(Issue) ->
             Title = "Create new issue";
         Id0 -> 
             Id = Id0,
-            Title = "Issue " ++ Id
+            Title0 = proplists:get_value(title, Issue),
+            Title = "Issue " ++ Id ++ ": " ++ Title0
     end,
     {ehtml, {h1, [], Title}}.
 
@@ -276,10 +279,13 @@ created_by(Issue) ->
 summary(Issue) ->
     {ehtml, {'div', [{class, "summary"}], summary(Issue, [])}}.
 
+%% Do not include 'title' and 'id' in summary
 summary([], Ehtml) -> lists:reverse(Ehtml);
+summary([{title, Value} | Others], Ehtml_acc) -> summary(Others, Ehtml_acc);
+summary([{id, Value} | Others], Ehtml_acc) -> summary(Others, Ehtml_acc);
 summary([{Name, Value} | Others], Ehtml_acc) ->
     Name_str = atom_to_list(Name),
-    Ehtml = [{span, [{class, "label_" ++ Name_str}], Name_str},
+    Ehtml = [{span, [{class, "label_" ++ Name_str}], Name_str ++ ": "},
              {span, [], to_string(Value) ++ "<br>\n"}
             ],
     %log:debug("readonly:Ehtml=~p", [Ehtml])

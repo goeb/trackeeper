@@ -25,6 +25,8 @@ table.body {
 .summary {
     border-style: solid;
     border-width: 1px;
+    /*padding-left: 1em;*/
+    padding-right: 1em;
     float: left;
 }
 
@@ -39,6 +41,7 @@ table.body {
     white-space: nowrap;
     padding-right: 5px;
     margin-left: 10px;
+    font-weight:bold;
 }
 
 .field_title, .field_status, .field_owner, .field_priority, .field_summary, .field_tags {
