@@ -228,12 +228,24 @@ consolidate_multipart([{head,{Name,_Headers}}, {body, Value} | Others], Acc) ->
 http_get([], _Query) -> tke_rendering_html:resource_not_found();
 http_get(["login"], _Query) -> tke_rendering_html:login_page();
 http_get([Project], _Query) -> no_resource(Project);
+http_get([Project, "static" | Rest], Query) -> get_static_file(Project, Rest, Query);
 http_get([Project, "issue"], Query) -> list_issues(Project, Query);
 http_get([Project, "issue", "list"], Query) -> list_issues(Project, Query);
 http_get([Project, "issue", "new"], Query) -> new_issue(Project, Query);
 http_get([Project, "issue", N], Query) -> show_issue(Project, N, Query);
 http_get(A, B) -> log:info("Invalid GET request ~p ? ~p", [A, B]),
     tke_rendering_html:resource_not_found().
+
+get_static_file(Project, Path, _Query) ->
+    Filepath = Project ++ "/static/" ++ string:join(Path, "/"),
+    %log:debug("Project=~p, Path=~p, Filepath=~p", [Project, Path, Filepath]),
+    case file:read_file(Filepath) of
+        {ok, Contents} -> {html, Contents};
+        {error, Reason} ->
+            log:debug("Could not get static file ~p: ~p", [Filepath, Reason]),
+            {status, 404}
+    end.
+
 
 out(A) ->
     check_session(A),
