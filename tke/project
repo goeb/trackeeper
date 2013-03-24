@@ -1,13 +1,18 @@
-[{issue_columns,[{title,{}},
+[{issue_columns,[
                  {status,{select,["open","closed","deleted"]}},
                  {owner,{select,user}},
                  {priority,{select,["high", "medium", "low", "very low"]}},
-                 {tags,{select_multiple,["v4.0","v4.1", "v5.0"]}}]},
+                 {tags,{select_multiple,["v4.0","v4.1", "v5.0"]}},
+                 {x, {}},
+                 {y, {select,["a", "b", "c"]}},
+                 {z, {}},
+                 {t, {}}
+                ]},
  {default_display, [id, mtime, title, status, priority, owner]}
 ].
 
 
-% hidden comluns are: id, ctime, mtime, author
+% hidden columns are: id, ctime, mtime, author, title
 % columns names are used for storage, display, and edit form.
 % columns properties are used for edit form only.
 % Example of textarea: {summary,{textarea}},

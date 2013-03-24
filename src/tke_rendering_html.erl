@@ -167,7 +167,8 @@ print_diff([{Old_value, New_value} | Rest_diff], Acc) ->
 %% Properties = tuple() : select, select_multiple, textarea, none
 edition_field(_P, Name, Value, {}) ->
     % TODO get list of values for lists, get size, etc.
-    { input, [{name, atom_to_list(Name)},
+    Name_str = atom_to_list(Name),
+    { input, [{name, Name_str}, {class, "tk_input_" ++ Name_str},
             {type, "text"}, {value, to_string(Value)}], ""};
 
 edition_field(Project, Name, Value, {textarea}) ->
@@ -318,22 +319,40 @@ delete_fields([Key | Rest], Proplist) ->
     New_list = proplists:delete(Key, Proplist),
     delete_fields(Rest, New_list).
 
-% fields of an issue
+%% Fields of an issue
+%% The title is displayed first, spanning on 3 columns
+%% The other fields are displayed afterwards, on 3 columns
 edit_fields(Project, Issue) ->
     I = delete_fields(tke_db:get_columns_automatic(), Issue),
-    {table, [], edit_fields(Project, I, [])}.
+    Title = proplists:get_value(title, I),
+    I2 = proplists:delete(title, I),
+    Title_ehtml = {tr, [], [
+                    {td, [{class, "label_title"}], "title"},
+                    {td, [{class, "tk_td_input"}, {colspan, "5"}],
+                        edition_field(Project, title, Title, {})}]},
+    {table, [], [
+            Title_ehtml,
+            edit_fields(Project, I2, [])]}.
 
 edit_fields(_Project, [], Html_rows_acc) -> lists:reverse(Html_rows_acc);
-% id is not editable
-edit_fields(Project, [A , B | Rest], Ehtml_acc) ->
+edit_fields(Project, [A, B, C | Rest], Ehtml_acc) ->
+    % case of 3 items. put them in a 'tr' row.
+    Row = {tr, [], [edit_field_cell(Project, A),
+                    edit_field_cell(Project, B),
+                    edit_field_cell(Project, C)]},
+    edit_fields(Project, Rest, [Row | Ehtml_acc]);
+
+edit_fields(Project, [A, B], Ehtml_acc) ->
     % case of 2 items. put them in a 'tr' row.
     Row = {tr, [], [edit_field_cell(Project, A),
-                    edit_field_cell(Project, B)]},
-    edit_fields(Project, Rest, [Row | Ehtml_acc]);
+                    edit_field_cell(Project, B),
+                    {td, [], ""}]},
+    edit_fields(Project, [], [Row | Ehtml_acc]);
 
 edit_fields(Project, [A], Ehtml_acc) ->
     % case of 1 item
     Row = {tr, [], [edit_field_cell(Project, A),
+                    {td, [], ""},
                     {td, [], ""}]},
     edit_fields(Project, [], [Row | Ehtml_acc]).
 
@@ -341,7 +360,7 @@ edit_field_cell(Project, {Name, Value}) ->
     P = tke_db:get_column_properties(Project, Name),
     Name_str = atom_to_list(Name),
     [{td, [{class, "label_" ++ Name_str}], Name_str},
-     {td, [], edition_field(Project, Name, Value, P)}].
+     {td, [{class, "tk_td_input"}], edition_field(Project, Name, Value, P)}].
 
 edition_message() ->
     {'div', [{class, "message"}], [

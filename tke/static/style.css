@@ -39,7 +39,7 @@ table.body {
     border-bottom: solid gray 1px;
 }
 
-.label_title, .label_status, .label_owner, .label_priority, .label_summary, .label_tags, .label_message, .label_author, .label_mtime, .label_ctime, .label_id {
+.label_title, .label_status, .label_owner, .label_priority, .label_summary, .label_tags, .label_message, .label_author, .label_mtime, .label_ctime, .label_id, .label_x, .label_y, .label_z, .label_t {
     color: #338;
     text-align: right;
     vertical-align: top;
@@ -47,6 +47,9 @@ table.body {
     padding-right: 5px;
     margin-left: 10px;
     font-weight:bold;
+}
+.tk_td_input {
+    vertical-align:top;
 }
 
 .field_title, .field_status, .field_owner, .field_priority, .field_summary, .field_tags {
@@ -69,6 +72,9 @@ table.body {
 }
 .tk_msg_id, .tk_msg_author, .tk_msg_date, .tk_msg_del {
     padding-right: 1em;
+}
+.tk_input_title {
+    width: 50em;
 }
 .message {
     clear: both;

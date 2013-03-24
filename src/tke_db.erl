@@ -582,9 +582,11 @@ add_elements(Tuple, N) ->
 get_columns(Ctx, issue) ->
     Columns = proplists:get_value(issue_columns, Ctx#project.structure),
     % add "hidden" columns id, ctime, author  
-    get_columns_automatic() ++ get_ordered_keys(Columns, []).
+    get_columns_automatic() ++ get_columns_mandatory() ++ 
+        get_ordered_keys(Columns, []).
 
 get_columns_automatic() -> [id, ctime, mtime, author].
+get_columns_mandatory() -> [title].
 
 get_default_columns(Ctx, issue) ->
     proplists:get_value(default_display, Ctx#project.structure).
