@@ -277,21 +277,36 @@ created_by(Issue) ->
 %% summary
 %% Display fields of an issue (read-only)
 %% Do not include 'title' and 'id' in summary
+%% Do not display summary if id is undefined (creating a new issue)
 summary(Issue) ->
-    I1 = proplists:delete(title, Issue),
-    I2 = proplists:delete(id, I1),
-    {ehtml, {table, [{class, "summary"}], summary(I2, [])}}.
+    Id = proplists:get_value(id, Issue),
+    case Id of
+        undefined -> {html, ""};
+        _Else ->
+            I1 = proplists:delete(title, Issue),
+            I2 = proplists:delete(id, I1),
+            {ehtml, {table, [{class, "summary"}], summary(I2, [])}}
+    end.
 
 summary([], Ehtml) -> lists:reverse(Ehtml);
-summary([A, B | Rest], Ehtml_acc) ->
+summary([A, B, C | Rest], Ehtml_acc) ->
+    % case of 3 items. put them in a 'tr' row.
+    Row = {tr, [], [summary_cell(A),
+                    summary_cell(B),
+                    summary_cell(C)]},
+    summary(Rest, [Row | Ehtml_acc]);
+
+summary([A, B], Ehtml_acc) ->
     % case of 2 items. put them in a 'tr' row.
     Row = {tr, [], [summary_cell(A),
-                    summary_cell(B)]},
-    summary(Rest, [Row | Ehtml_acc]);
+                    summary_cell(B),
+                    {td, [], ""}]},
+    summary([], [Row | Ehtml_acc]);
 
 summary([A], Ehtml_acc) ->
     % case of 1 item. put it in a 'tr' row.
     Row = {tr, [], [summary_cell(A),
+                    {td, [], ""},
                     {td, [], ""}]},
     summary([], [Row | Ehtml_acc]).
 
