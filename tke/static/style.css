@@ -39,7 +39,7 @@ table.body {
     border-bottom: solid gray 1px;
 }
 
-.label_title, .label_status, .label_owner, .label_priority, .label_summary, .label_tags, .label_message, .label_author, .label_mtime, .label_ctime, .label_id, .label_x, .label_y, .label_z, .label_t {
+.label_title, .label_status, .label_owner, .label_priority, .label_summary, .label_message, .label_author, .label_mtime, .label_ctime, .label_id, .label_target_version {
     color: #338;
     text-align: right;
     vertical-align: top;

@@ -107,8 +107,10 @@ update(Project, issue, Issue) ->
 %% <dt><code>{search, Text}</code></dt>
 %% <dd>Specify some text that should be present in all results.
 %% This implies a full-text search on all text fields.</dd>
-%% <dt><code>{filter, [{Column, Value}]} </code></dt>
+%% <dt><code>{keep, [{Column, Value}]} </code></dt>
 %% <dd>Specify values of columns that must be kept in the result.</dd>
+%% <dt><code>{exclude, [{Column, Value}]} </code></dt>
+%% <dd>Specify values of columns that must be excluded from the result.</dd>
 %% </dl>
 %%
 search(Project, Table, Search) ->
@@ -232,18 +234,25 @@ handle_call({update, Issue}, _From, Ctx) ->
 %   key 'search' : pattern for selective search
 handle_call({search, issue, Search_description}, _From, Ctx) ->
     log:debug("search issue: Search=~p", [Search_description]),
-    % for now, return the list of all issues
-    % TODO filter
+  
+    % filter
+    case proplists:get_value(keep, Search_description) of
+        undefined -> % take all records from the table
+            Pattern_l = lists:duplicate(length(get_columns(Ctx, issue)), '_'),
+            Pattern = list_to_tuple([issue | Pattern_l]);
+
+        Keep -> % filter and keep only those specified
+            Pattern = make_keeping_pattern(Keep, get_columns(Ctx, issue), [])
+    end,
+    log:debug("Filtering pattern: ~p", [Pattern]),
+    Issues0 = ets:match_object(Ctx#project.issues, Pattern),
+
+    % now search text if requested
     Search_text = proplists:get_value(search, Search_description),
     case Search_text of
-        undefined ->
-            % search only based on the given criteria TODO (no criteria for now)
-            Pattern_l = lists:duplicate(length(get_columns(Ctx, issue)), '_'),
-            Pattern = list_to_tuple([issue | Pattern_l]),
-            Issues = ets:match_object(Ctx#project.issues, Pattern);
-
+        undefined -> Issues = Issues0;
         Search_text ->
-            Issues0 = full_text_search(Ctx#project.issues, Search_text),
+            Issues0 = full_text_search(Issues0, Search_text, []),
             Messages = full_text_search(Ctx#project.messages, Search_text),
             Issues = merge_issues(Issues0, Ctx#project.issues, Messages)
     end,
@@ -626,6 +635,15 @@ make_diff([Old_value | Rest_old], [New_value | Rest_new], Acc) ->
     end.
 
 
+%% Perform a full text search on the given list of tuples
+full_text_search([], _Pattern, Found_issues) -> Found_issues;
+full_text_search([Item | Rest], Pattern, Found_issues) ->
+    case full_text_match(Item, Pattern, size(Item)) of
+        found -> Found = [Item | Found_issues];
+        not_found -> Found = Found_issues
+    end,
+    full_text_search(Rest, Pattern, Found).
+
 %% Perform a full text search on the given ETS table
 full_text_search(Table, Text) ->
     First = ets:first(Table),
@@ -679,5 +697,19 @@ lookup_issue([Issue | Rest], Id) ->
     case element(2, Issue) of
         Id -> found;
         _Else -> lookup_issue(Rest, Id)
+    end.
+
+%% convert format [{Key, Value}] to {issue, '_', '_', Value, etc.}
+%%  Keep    = [{Key, Value}]
+%%  Column  = [atom()]
+%%  Key     = string()
+%%  
+make_keeping_pattern(_Keep, [], List) ->
+    list_to_tuple([issue | lists:reverse(List)]);
+make_keeping_pattern(Keep, [Column | Rest], List) ->
+    Colname = atom_to_list(Column),
+    case proplists:get_value(Colname, Keep) of
+        undefined -> make_keeping_pattern(Keep, Rest, ['_' | List]);
+        Value -> make_keeping_pattern(Keep, Rest, [Value | List])
     end.
 

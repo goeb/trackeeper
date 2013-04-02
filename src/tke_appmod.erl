@@ -19,11 +19,13 @@ list_issues(Project_name, Query_params) ->
     log:info("list_issues(~p, issues, list, query=~p)\n", [Project_name, Query_params]),
     Colspec = get_colspec(Query_params),
     Sorting = get_sorting(Query_params),
-    Filter = get_filter(Query_params),
+    {Keep, Exclude} = get_filter(Query_params),
     Search_text = get_search_text(Query_params),
     Module = get_format(Query_params),
     {Columns, Issues} = tke_db:search(Project_name, issue,
-        [{columns, Colspec}, {sort, Sorting}, {search, Search_text}]),
+        [{columns, Colspec}, {sort, Sorting}, {search, Search_text},
+         {keep, Keep}, {exclude, Exclude}
+        ]),
     log:debug("apply Module=~p", [Module]),
     apply(Module, list_issues, [Project_name, Columns, Issues]).
 
@@ -56,22 +58,31 @@ get_sorting(Query_params) ->
         _Else -> [list_to_atom(X) || X <- string:tokens(Sorting, "+")]
     end.
 
-%% filter=label:v1.0+status:open
-%% => [{label, "v1.0"}, {status, "open"}]
+%% @spec get_filter(Query_params) -> {Keep, Exclude}
+%%      Keep    = [{Key, Value}]
+%%      Exclude = [{Key, Value}]
+%%
+%% filter=label:v1.0+owner:John Doo-status:closed-status:deleted
+%% => {[{"label", "v1.0"}, {"owner", "John Doo"}], 
+%%     [{"status", "closed"}, {"status", "deleted"}]
+%%    }
 get_filter(Query_params) ->
     Filter = proplists:get_value("filter", Query_params),
     parse_filter(Filter).
+
+%% TODO for now only + (keep) are inmplemented)
+parse_filter(undefined) -> {undefined, undefined}; % {Keep, Exclude}
+parse_filter(Filter) ->
+    Groups = string:tokens(Filter, "+"),
+    Keep = [string:tokens(X, ":") || X <- Groups],
+    Keep1 = [{Key, Value} || [Key, Value] <- Keep],
+    {Keep1, []}. % TODO exclude not implemented
 
 %% get the searched text from the query string
 get_search_text(Query_params) ->
     Search_text = proplists:get_value("search", Query_params),
     Search_text.
 
-parse_filter(undefined) -> undefined;
-parse_filter(Filter) ->
-    Groups = string:tokens(Filter, "+"),
-    [string:tokens(X, ":") || X <- Groups]
-    .
 
 
 
