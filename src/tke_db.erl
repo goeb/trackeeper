@@ -252,9 +252,9 @@ handle_call({search, issue, Search_description}, _From, Ctx) ->
     case Search_text of
         undefined -> Issues = Issues0;
         Search_text ->
-            Issues0 = full_text_search(Issues0, Search_text, []),
+            Issues1 = full_text_search(Issues0, Search_text, []),
             Messages = full_text_search(Ctx#project.messages, Search_text),
-            Issues = merge_issues(Issues0, Ctx#project.issues, Messages)
+            Issues = merge_issues(Issues1, Ctx#project.issues, Messages)
     end,
 
     I_list = [convert_to_proplist(Ctx, I) || I <- Issues],
@@ -511,17 +511,21 @@ convert_to_entry(Ctx, issue, I) ->
     Keys = get_columns(Ctx, issue),
     convert_to_record(Keys, I, [issue]).
 
-%% Sort a proplist according to a key
+%% Sort a proplist according to a columns
 sort(I_list, undefined) -> I_list;
-%% Col = atom() = Key used for the sorting of the proplist
-sort(I_list, [Col]) ->
+sort(I_list, Columns) ->
     % less than or equal function
-    Lte = fun(A, B) ->
-            proplists:get_value(Col, A) < proplists:get_value(Col, B) end,
-    lists:sort(Lte, I_list);
-   
-%% TODO multi-column  sorting
-sort(_I_list, _Sort) -> todo.
+    Lte = fun(A, B) -> compare_issues_lte(A, B, Columns) end,
+    lists:sort(Lte, I_list).
+
+compare_issues_lte(A, B, []) -> false;
+compare_issues_lte(A, B, [Col | Rest]) ->
+    A1 = proplists:get_value(Col, A),
+    B1 = proplists:get_value(Col, B),
+    if  A1 < B1 -> true;
+        A1 > B1 -> false;
+        true -> compare_issues_lte(A, B, Rest)
+    end.
 
 get_timestamp() ->
     TS = os:timestamp(),
