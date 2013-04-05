@@ -518,10 +518,17 @@ sort(I_list, Columns) ->
     Lte = fun(A, B) -> compare_issues_lte(A, B, Columns) end,
     lists:sort(Lte, I_list).
 
-compare_issues_lte(A, B, []) -> false;
-compare_issues_lte(A, B, [Col | Rest]) ->
-    A1 = proplists:get_value(Col, A),
-    B1 = proplists:get_value(Col, B),
+
+%% @spec compare_issues_lte(A, B, Keys) -> true | false
+%%  A    = proplist()
+%%  B    = proplist()
+%%  Keys = [atom()]
+%% 
+%% Compare A and B according to the values of the keys given in Columns
+compare_issues_lte(A, B, []) -> true;
+compare_issues_lte(A, B, [Key | Rest]) ->
+    A1 = proplists:get_value(Key, A),
+    B1 = proplists:get_value(Key, B),
     if  A1 < B1 -> true;
         A1 > B1 -> false;
         true -> compare_issues_lte(A, B, Rest)

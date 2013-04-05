@@ -1,6 +1,7 @@
 -module(tke_appmod).
 
 -include("../../../yaws/include/yaws_api.hrl").
+-include_lib("eunit/include/eunit.hrl").
 -include("tke_db.hrl").
 -compile(export_all).
 
@@ -278,5 +279,40 @@ check_session(A) ->
             log:debug("sid=~p", [C]),
             log:debug("Xcookie=~p", [X])
     end.
+
+%% "aa+bb-cc" -> [{'+', aa}, {'+', bb}, {'-', cc}]
+parse_criteria(undefined) -> [];
+parse_criteria([$+ | String]) -> parse_criteria(String, '+', "", []);
+parse_criteria([$- | String]) -> parse_criteria(String, '-', "", []);
+parse_criteria(String) -> parse_criteria(String, '+', "", []).
+
+%% parse_criteria (accumulator version)
+parse_criteria([], _Sign, "", Acc) -> lists:reverse(Acc);
+parse_criteria([], Sign, Token, Acc) ->
+    Current = {Sign, Token},
+    lists:reverse([Current | Acc]);
+parse_criteria([$- | Rest], _S, "", Acc) -> parse_criteria(Rest, '-', "", Acc);
+parse_criteria([$+ | Rest], _S, "", Acc) -> parse_criteria(Rest, '+', "", Acc);
+parse_criteria([$- | Rest], Sign, Token, Acc) ->
+    parse_criteria(Rest, '-', "", [{Sign, Token} | Acc]);
+parse_criteria([$+ | Rest], Sign, Token, Acc) ->
+    parse_criteria(Rest, '+', "", [{Sign, Token} | Acc]);
+parse_criteria([Char | Rest], Sign, Token, Acc) ->
+    parse_criteria(Rest, Sign, Token ++ [Char], Acc).
+
+parse_criteria_test() ->
+    parse_criteria([], xxx, "", [1, 2, 3]),
+    parse_criteria([], xxx, "yyy", [1, 2, 3]),
+    parse_criteria("-ooo", xxx, "yyy", [1, 2, 3]),
+    parse_criteria("aa+bb-cc"),
+    [{'+', "aa"}, {'+', "bb"}, {'-', "cc"}] = parse_criteria("aa+bb-cc"),
+    [{'-', "dd"}] = parse_criteria("-dd"),
+    [{'-', "dd"}] = parse_criteria("-dd+"),
+    [{'-', "dd"}, {'+', "aaa%"}] = parse_criteria("--dd++aaa%-"),
+    [{'+', "xx"}, {'-', "yy"}, {'+', "zz"}] = parse_criteria("+xx-yy+zz"),
+    [] = parse_criteria(""),
+    [] = parse_criteria(undefined),
+    [{'+', "uuuu"}] = parse_criteria("uuuu").
+
 
 
