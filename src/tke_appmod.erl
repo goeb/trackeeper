@@ -54,10 +54,8 @@ get_format(Query_params) ->
 %% => id ascending, then title ascending, then owner descending
 get_sorting(Query_params) ->
     Sorting = proplists:get_value("sort", Query_params),
-    case Sorting of
-        undefined -> undefined;
-        _Else -> [list_to_atom(X) || X <- string:tokens(Sorting, "+")]
-    end.
+    L = parse_criteria(Sorting),
+    [{X, list_to_existing_atom(Y)} || {X, Y} <- L].
 
 %% @spec get_filter(Query_params) -> {Keep, Exclude}
 %%      Keep    = [{Key, Value}]
@@ -301,10 +299,6 @@ parse_criteria([Char | Rest], Sign, Token, Acc) ->
     parse_criteria(Rest, Sign, Token ++ [Char], Acc).
 
 parse_criteria_test() ->
-    parse_criteria([], xxx, "", [1, 2, 3]),
-    parse_criteria([], xxx, "yyy", [1, 2, 3]),
-    parse_criteria("-ooo", xxx, "yyy", [1, 2, 3]),
-    parse_criteria("aa+bb-cc"),
     [{'+', "aa"}, {'+', "bb"}, {'-', "cc"}] = parse_criteria("aa+bb-cc"),
     [{'-', "dd"}] = parse_criteria("-dd"),
     [{'-', "dd"}] = parse_criteria("-dd+"),
