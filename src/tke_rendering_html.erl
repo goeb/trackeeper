@@ -64,13 +64,13 @@ format_cell(_Rowid, mtime, Time = {{_Y, _Month, _D}, {_H, _Min, _Second}}) ->
     Dur = Seconds_now - Seconds_event,
     case Dur of 
         Dur when Dur < 60 -> T = to_string(Dur) ++ " s";
-        Dur when Dur < 3600 -> T = to_string(Dur/60) ++ " min";
-        Dur when Dur < 86400 -> T = to_string(Dur/3600) ++ " h";
-        Dur when Dur < 2592000 -> T = to_string(Dur/86400) ++ " days";
-        Dur when Dur < 31536000 -> T = to_string(Dur/2592000) ++ " months";
-        Dur -> T = to_string(Dur/31536000) ++ " years"
+        Dur when Dur < 3600 -> T = to_string(round(Dur/60)) ++ " min";
+        Dur when Dur < 86400 -> T = to_string(round(Dur/3600)) ++ " h";
+        Dur when Dur < 2592000 -> T = to_string(round(Dur/86400)) ++ " days";
+        Dur when Dur < 31536000 -> T = to_string(round(Dur/2592000)) ++ " months";
+        Dur -> T = to_string(round(Dur/31536000)) ++ " years"
     end,
-    T ++ " ago";
+    T;
 format_cell(_Rowid, _Column_name, Column_value) -> to_string(Column_value).
 
 

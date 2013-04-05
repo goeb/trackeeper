@@ -4,7 +4,7 @@
                  {target_version,{select,["undefined", "v0.1", "v0.2", "v0.3", "v0.4"]}},
                  {tags,{select_multiple,["v4.0","v4.1", "v5.0"]}}
                 ]},
- {default_display, [id, mtime, title, status, priority, owner]},
+ {default_display, [id, mtime, title, status, priority, owner, target_version]},
  {custom_displays, [
     {"Open issues", "filter=status:open&sort=mtime"},
     {"Deleted issues", "filter=status:deleted"}
