@@ -1,3 +1,7 @@
+start tke application
+---------------------
+erl -pa ebin -config tke.config
+1> tke:start().
 
 REST API
 ----------

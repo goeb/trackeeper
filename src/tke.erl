@@ -7,8 +7,8 @@ start() -> application:start(tke).
 
 start(_Type, _Args) ->
     Link = {ok, Sup} = tke_sup:start_link(),
-    {ok, Children_specs} = start_yaws(),
-    [supervisor:start_child(Sup, Ch) || Ch <- Children_specs],
+    %{ok, Children_specs} = start_yaws(),
+    %[supervisor:start_child(Sup, Ch) || Ch <- Children_specs],
     Link.
 
 stop(_State) ->
