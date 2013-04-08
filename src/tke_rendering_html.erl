@@ -113,12 +113,13 @@ messages([M | Messages], Acc) ->
     Date = proplists:get_value(ctime, M),
     Id = proplists:get_value(id, M),
     Text = proplists:get_value(text, M, "no text"),
-    Head = {'div', [{class, "tk_msg_header"}], [
-            {span, [{class, "tk_msg_id"}], "msg." ++ to_string(Id)},
-            {span, [{class, "tk_msg_author"}], to_string(Author)},
-            {span, [{class, "tk_msg_date"}], date_to_string(Date)},
-            {span, [{class, "tk_msg_del"}], "Bouton DELETE"}
-        ]},
+    Head = {'div',
+            [{class, "tk_msg_header"}],
+            [{span, [{class, "tk_msg_id"}], "msg." ++ to_string(Id)},
+             {span, [{class, "tk_msg_author"}], to_string(Author)},
+             {span, [{class, "tk_msg_date"}], date_to_string(Date)},
+             {span, [{class, "tk_msg_del"}], "Bouton DELETE"}
+            ]},
     case Text of
         "" -> Contents = [];
         _Else ->
@@ -129,23 +130,24 @@ messages([M | Messages], Acc) ->
 
 history([], Acc) ->
     First = {tr, [], {th, [{colspan, "4"}, {class, "header"}], "History"}},
-    Second = {tr, [], [
-                {th, [], "Date"},
-                {th, [], "Author"},
-                {th, [], "Action"}
-            ]},
+    Second = {tr, [],
+              [{th, [], "Date"},
+               {th, [], "Author"},
+               {th, [], "Action"}
+              ]},
     {ehtml, {table, [{class, "history"}], [First, Second|lists:reverse(Acc)]}};
+
 history([H | History], Acc) ->
     Author = proplists:get_value(author, H),
     Ctime = proplists:get_value(ctime, H),
     Action = proplists:get_value(action, H),
     Action_str = to_action_string(Action, ""),
     log:debug("Action_str=~p", [Action_str]),
-    Contents = {tr, [], [
-            {td, [], date_to_string(Ctime)},
-            {td, [], to_string(Author)},
-            {td, [], Action_str}
-        ]},
+    Contents = {tr, [],
+                [{td, [], date_to_string(Ctime)},
+                 {td, [], to_string(Author)},
+                 {td, [], Action_str}
+                ]},
     history(History, [Contents | Acc]).
 
 
@@ -169,7 +171,7 @@ edition_field(_P, Name, Value, {}) ->
     % TODO get list of values for lists, get size, etc.
     Name_str = atom_to_list(Name),
     { input, [{name, Name_str}, {class, "tk_input_" ++ Name_str},
-            {type, "text"}, {value, to_string(Value)}], ""};
+              {type, "text"}, {value, to_string(Value)}], ""};
 
 edition_field(Project, Name, Value, {textarea}) ->
     edition_textarea(Project, Name, Value);
@@ -201,17 +203,17 @@ edition_select(Project, Name, Value, [Option | Rest], Acc, multiple_yes) ->
         is_list(Value) and (length(Value) > 0) ->
             [A | _B] = Value,
             if is_list(A) -> % case where Value is list(list(char))
-                case lists:member(Option, Value) of
-                    true -> Attr = [{selected, "selected"}];
-                    _Else2 -> Attr = []
-                end;
+                    case lists:member(Option, Value) of
+                        true -> Attr = [{selected, "selected"}];
+                        _Else2 -> Attr = []
+                    end;
+               
+               Option == Value -> % case where Value is list(char)
+                    Attr = [{selected, "selected"}];
 
-            Option == Value -> % case where Value is list(char)
-                Attr = [{selected, "selected"}];
-
-            true -> Attr = []
+               true -> Attr = []
             end;
-
+        
         true -> % may be 'undefined' for creation of a new issue
             Attr = []
     end,
@@ -269,9 +271,9 @@ created_by(Issue) ->
     Author_str = to_string(Author),
     if Ctime == undefined ->
             "";
-        true ->
+       true ->
             {ehtml, {p, [], "Created on <b>" ++ Ctime_str ++ "</b> by <b>"
-            ++ Author_str ++ "</b>"}}
+                     ++ Author_str ++ "</b>"}}
     end.
 
 %% summary
@@ -317,17 +319,16 @@ summary_cell({Name, Value}) ->
     ].
 
 edition_form(Project, Issue) ->
-    {ehtml, {form, [
-                {method, "post"},
-                {action, ""},
-                {enctype, "multipart/form-data"}
-            ],
-            [edit_fields(Project, Issue),
-             edition_message(),
-             % TODO file upload
-             submit()
-            ]
-        }}.
+    {ehtml, {form, [{method, "post"},
+                    {action, ""},
+                    {enctype, "multipart/form-data"}
+                   ],
+             [edit_fields(Project, Issue),
+              edition_message(),
+                                                % TODO file upload
+              submit()
+             ]
+            }}.
 
 delete_fields([], Proplist) -> Proplist;
 delete_fields([Key | Rest], Proplist) ->
@@ -342,12 +343,12 @@ edit_fields(Project, Issue) ->
     Title = proplists:get_value(title, I),
     I2 = proplists:delete(title, I),
     Title_ehtml = {tr, [], [
-                    {td, [{class, "label_title"}], "title"},
-                    {td, [{class, "tk_td_input"}, {colspan, "5"}],
-                        edition_field(Project, title, Title, {})}]},
+                            {td, [{class, "label_title"}], "title"},
+                            {td, [{class, "tk_td_input"}, {colspan, "5"}],
+                             edition_field(Project, title, Title, {})}]},
     {table, [], [
-            Title_ehtml,
-            edit_fields(Project, I2, [])]}.
+                 Title_ehtml,
+                 edit_fields(Project, I2, [])]}.
 
 edit_fields(_Project, [], Html_rows_acc) -> lists:reverse(Html_rows_acc);
 edit_fields(Project, [A, B, C | Rest], Ehtml_acc) ->

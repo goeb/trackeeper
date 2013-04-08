@@ -333,8 +333,7 @@ load(Project) ->
 
 load_project_file(Project) ->
     File = Project ++ "/project",
-    {ok, Binary} = file:read_file(File),
-    Term = decode_contents(Binary),
+    {ok, [Term]} = file:consult(File),
     log:debug("load_project_file(~p): done.", [Project]),
     Term.
 
@@ -346,23 +345,16 @@ load_issues(Ctx) ->
 load_issues_from_dirs([], _Ctx) -> ok;
 load_issues_from_dirs([Dir | Others], Ctx) ->
     File = Dir ++ "/issue",
-    case file:read_file(File) of
-        {error, _Reason} -> ok;
-        {ok, Binary} ->
-            Term = decode_contents(Binary),
-            % convert proplist to record-like tuple
+    case file:consult(File) of
+        {error, _Reason} -> log:error("error loading issue ~p", [File]);
+        {ok, [Term]} ->
+            %% convert proplist to record-like tuple
             I = convert_to_entry(Ctx, issue, Term),
-            ets:insert(Ctx#project.issues, I)
-            %log:debug("Issue ~p loaded.", [File])
+            ets:insert(Ctx#project.issues, I);
+        _Other -> log:error("unexpected format for issue ~p", [File])
     end,
     load_messages_and_history(Dir, Ctx#project.messages, Ctx#project.history),
     load_issues_from_dirs(Others, Ctx).
-
-decode_contents(Binary) ->
-    S = binary_to_list(Binary),
-    {ok, Tokens, _EndLocation} = erl_scan:string(S),
-    {ok, Term} = erl_parse:parse_term(Tokens),
-    Term.
 
 load_messages_and_history(Dir, Messages, History) -> 
     case file:list_dir(Dir) of
@@ -377,10 +369,9 @@ load_from_files(_Dir, [], _Messages, _History) -> ok;
 load_from_files(Dir, [[$m, $s, $g, $. | Id] | Others], Messages, His) ->
     File = Dir ++ "/msg." ++ Id,
     %log:debug("Message ~p", [File]),
-    case file:read_file(File) of
+    case file:consult(File) of
         {error, _Reason} -> log:debug("Message ~p rejected", [File]);
-        {ok, Binary} ->
-            Term = decode_contents(Binary),
+        {ok, [Term]} ->
             case merge_to_record(message, Term) of % TODO is this really useful?
                 {error, Reason} -> log:error("Cannot load message ~p: ~p",
                                              [Id, Reason]);
@@ -392,10 +383,9 @@ load_from_files(Dir, [[$m, $s, $g, $. | Id] | Others], Messages, His) ->
 %% Load History
 load_from_files(Dir, [[$h, $i, $s, $. | Id] | Others], Messages, History) ->
     File = Dir ++ "/his." ++ Id,
-    case file:read_file(File) of
+    case file:consult(File) of
         {error, _Reason} -> log:debug("History ~p rejected", [File]);
-        {ok, Binary} ->
-            Term = decode_contents(Binary),
+        {ok, [Term]} ->
             ets:insert(History, Term)
     end,
     load_from_files(Dir, Others, Messages, History);
