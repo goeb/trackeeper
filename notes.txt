@@ -3,6 +3,10 @@ start tke application
 erl -pa ebin -config tke.config
 1> tke:start().
 
+4> application:load({application, tke, [{env, [{projects, "tke"}]}]}).
+ok
+5> application:start(tke).                                            
+
 REST API
 ----------
 http://localhost:8000/

@@ -1,23 +1,15 @@
-#!/usr/bin/env escript
-%% -*- erlang -*-
-%%! -smp enable -sname tke verbose
+#!/bin/sh
+# This TKE start script should be located in $ROOT/bin of the release
+# so that the Erlang VM is relatively located at ../erts-5.9.2/bin/erl
 
-main(["daemon"]) ->
-    true = code:add_pathz(filename:dirname(escript:script_name()) 
-                       ++ "/../ebin"),
-    tke:start(),
-    ok;
+DIR=`dirname $0`
 
-main(_) ->
-    usage().
+echo DIR=$DIR
+ERL=`ls $DIR/../erts*/bin/erl 2>/dev/null| tail -1`
 
-usage() ->
-    io:format("Usage: tke <command>\n"),
-    io:format("\n"),
-    io:format("\tinit\n"),
-    io:format("\tdaemon\n"),
-    io:format("\tui\n"),
-    halt(1).
-
+[ -z "$ERL" ] && ERL=erl && PA="-pa ebin -pa /home/fred/yaws-1.96/ebin"
+set -x
+#$ERL -run tke -detached $PA -tke $@
+$ERL -noshell -noinput $PA -run tke start -extra --port 8001 --docroot . -p tke -p maison
 
 

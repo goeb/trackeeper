@@ -5,7 +5,7 @@
 -include("tke_db.hrl").
 -compile(export_all).
 
-%% init server
+%% init server (called by yaws if runmod is specified)
 start() ->
     io:format("~p starting...\n", [ ?MODULE ]),
     tke_db:start("tke"), % TODO start as many tke_db as there are projects
@@ -149,8 +149,19 @@ serve('POST', Url_tokens, Http_req) ->
     %log:debug("Post: Multipart=~p", [Multipart]),
     %log:debug("Post: Post_data=~p", [Post_data]),
 
+%% Process POST requests
+%% Request for creating new project
+http_post(["new"], Form_data) -> 
+    case proplists:get_value(project_name, Form_data) of
+        undefined -> 
+            {redirect, "/"};
+        Project_name ->
+            ok = tke_db:create_project(Project_name),
+            {redirect, "/" ++ Project_name}
+    end;
 http_post([Project, "issue", N], Issue) -> 
-    I2 = proplists:delete(id, Issue), % normally not needed
+    %% 'id' key normally not needed as it is given by N
+    I2 = proplists:delete(id, Issue),
     case N of
         "new" -> % set id = undefined
             I3 = [{id, undefined} | I2];
@@ -235,7 +246,7 @@ consolidate_multipart([{head,{Name,_Headers}}, {body, Value} | Others], Acc) ->
 % Project = name of project = list(char)
 % Resource = "issue" | TODO
 % Query = proplists of items of the HTTP query string
-http_get([], _Query) -> tke_rendering_html:resource_not_found();
+http_get([], _Query) -> tke_rendering_html:project_config();
 http_get(["login"], _Query) -> tke_rendering_html:login_page();
 http_get([Project], _Query) -> no_resource(Project);
 http_get([Project, "static" | Rest], Query) -> get_static_file(Project, Rest, Query);

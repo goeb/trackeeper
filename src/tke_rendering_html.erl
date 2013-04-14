@@ -13,7 +13,7 @@
 
 -export([resource_not_found/0, list_issues/3]).
 -export([show_issue/4]).
--export([login_page/0]).
+-export([login_page/0, project_config/0]).
 
 % Return the ehtml structure for the table of issues
 % The rowid must be present
@@ -413,3 +413,11 @@ footer(Project) ->
 login_page() ->
     {ok, Html} = file:read_file("tke_users/login.html"),
     {html, Html}.
+
+%% Page that shows existing projects
+project_config() ->
+    {ok, Html} = file:read_file("priv/project_config.html"),
+    {html, Html}.
+
+
+

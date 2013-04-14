@@ -38,6 +38,7 @@
 -module(tke_db).
 -behaviour(gen_server).
 
+-include_lib("kernel/include/file.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
 -export([start/1, stop/1]).
@@ -116,24 +117,38 @@ update(Project, issue, Issue) ->
 search(Project, Table, Search) ->
     gen_server:call(registered_name(Project), {search, Table, Search}).
 
+%% Create a new project and start the tke_db process in charge
+%% of serving this new project
+create_project("new") -> {error, reserved_project_name};
+create_project("user") -> {error, reserved_project_name};
 create_project(Project) ->
-    log:debug("create_project(~p)", [Project]),
-    case file:make_dir(Project) of
-        ok -> % populate with template project file
-            case file:copy("priv/project_template/project", Project ++ "/" ++ project) of
-                {ok, BytesCopied} ->
-    %% TODO copy header, footer
-                    % start a db server for this one
-                    start(Project);
-                {error, Reason} ->
-                    log:error("Could not copy 'project' file: ~p", [Reason]),
-                    {error, Reason}
+    Path = os:getenv("HOME") ++ "/tke_projects/" ++ Project,
+    log:debug("create_project(~p)", [Path]),
+    case filelib:ensure_dir(Path ++ "/x") of
+        ok ->
+            case populate_new_project(Path) of
+                ok -> tke_sup:start_new_project(Path);
+                Else -> Else
             end;
         {error, Reason} ->
             log:error("Could not create directory '~p': ~p", [Project, Reason]),
             {error, Reason}
     end.
 
+populate_new_project(Path) ->
+    Template_dir = code:priv_dir(tke) ++ "/project_template",
+    {ok, Template_files} = file:list_dir(Template_dir),
+    populate_new_project(Path, Template_files).
+
+populate_new_project(Path, []) -> ok;
+populate_new_project(Path, [File | Rest]) ->
+    Src_dir = code:priv_dir(tke) ++ "/project_template",
+    case file:copy(Src_dir ++ "/" ++ File, Path ++ "/" ++ File) of
+        {ok, BytesCopied} -> populate_new_project(Path, Rest);
+        {error, Reason} ->
+            log:error("Could not copy 'project' file: ~p", [Reason]),
+            {error, Reason}
+    end.
 
 %% Get properties of a column
 %% (such as multi-select, etc.)
@@ -346,7 +361,7 @@ load_issues_from_dirs([], _Ctx) -> ok;
 load_issues_from_dirs([Dir | Others], Ctx) ->
     File = Dir ++ "/issue",
     case file:consult(File) of
-        {error, _Reason} -> log:error("error loading issue ~p", [File]);
+        {error, _Reason} -> ok; %log:error("error loading issue ~p", [File]);
         {ok, [Term]} ->
             %% convert proplist to record-like tuple
             I = convert_to_entry(Ctx, issue, Term),

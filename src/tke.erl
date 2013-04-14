@@ -3,29 +3,48 @@
 
 -export([start/0, start/2, stop/1]).
 
-start() -> application:start(tke).
+%% Argument should be given on the command line like this:
+%% erl -run tke start -extra Arguments
+start() ->
+    Arguments = parse_args(init:get_plain_arguments(), []),
+    log:debug("Arguments=~p", [Arguments]),
+    start_yaws(Arguments),
+    application:set_env(tke, projects, proplists:get_value(projects, Arguments)),
+    application:start(tke).
 
 start(_Type, _Args) ->
-    Link = {ok, Sup} = tke_sup:start_link(),
-    %{ok, Children_specs} = start_yaws(),
-    %[supervisor:start_child(Sup, Ch) || Ch <- Children_specs],
-    Link.
+    io:format("starting aplication tke..."),
+    tke_sup:start_link().
 
 stop(_State) ->
     ok.
 
-start_yaws() ->
-    Docroot = ".",
-    SconfList = [{docroot, Docroot},
-                 {port, 8000},
-                 {listen, {127,0,0,1}},
-                 {appmods, [{"/", tke_appmod}]}],
-    GconfList = [ebin_dir, [Docroot ++ "/ebin"]], % TODO ebin_dir
-    {ok, SCList, GC, ChildSpecs} =
-        yaws_api:embedded_start_conf(Docroot, SconfList, GconfList),
-    log:debug("yaws started: ChildSpecs=~p", [ChildSpecs]),
-    %TODO
-    %TODO
-    yaws_api:setconf(GC, SCList),
-    {ok, ChildSpecs}.
+%% start_yaws(Arguments) -> ok | error
+%%    Arguments = proplist()
+%%
+start_yaws(Arguments) ->
+    DocRoot = proplists:get_value(docroot, Arguments),
+    Port = proplists:get_value(port, Arguments),
+    Logdir = proplists:get_value(logdir, Arguments),
+    GL=[{trace,false},
+        {flags,[{auth_log,false},{copy_errlog,false}]}],
+    SL=[{port,Port},{appmods,[{"/", tke_appmod}]},
+        {flags,[{access_log,false}]}],
+    yaws:start_embedded(DocRoot, SL, GL).
 
+parse_args([], Result) -> Result;
+parse_args(["--docroot", Arg | Rest], Acc) -> parse_args(Rest, [{docroot, Arg} | Acc]);
+parse_args(["--port", Arg | Rest], Acc) -> parse_args(Rest, [{port, list_to_integer(Arg)} | Acc]);
+parse_args(["--log-dir", Arg | Rest], Acc) -> parse_args(Rest, [{logdir, Arg} | Acc]);
+parse_args(["--project", Arg | Rest], Acc) -> parse_args(["-p", Arg | Rest], Acc);
+parse_args(["-p", Arg | Rest], Acc) ->
+    case proplists:get_value(project, Acc) of
+        undefined -> New_acc = [{project, [Arg]} | Acc];
+        Previous_value ->
+            New_acc0 = proplists:delete(project, Acc),
+            New_acc = [{project, [Arg | Previous_value]} | New_acc0]
+    end,
+    parse_args(Rest, New_acc);
+
+parse_args([Other | Rest], Acc) -> parse_args(Rest, Acc).
+    
