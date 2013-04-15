@@ -45,12 +45,12 @@
 -export([init/1, handle_call/3, handle_cast/2]).
 -export([code_change/3, handle_info/2, terminate/2]).
 
--export([get/3, update/3, search/3]).
+-export([get/3, update/3, search/3, get_path/1]).
 -export([create_project/1]).
 -export([get_columns_automatic/0, get_column_properties/2, keep_columns/3]).
 
 -include("tke_db.hrl").
--record(project, {name, issues, messages, history, structure}).
+-record(project, {path, issues, messages, history, structure}).
 -record(history, {id, issue, author, ctime, action}).
 
 % action = [new_issue,
@@ -117,6 +117,11 @@ update(Project, issue, Issue) ->
 search(Project, Table, Search) ->
     gen_server:call(registered_name(Project), {search, Table, Search}).
 
+%% Get the path of the project directory
+get_path(Project) ->
+    gen_server:call(registered_name(Project), get_path).
+
+
 %% Create a new project and start the tke_db process in charge
 %% of serving this new project
 create_project("new") -> {error, reserved_project_name};
@@ -164,11 +169,11 @@ registered_name(Project) ->
     
 
 %% Project = list(char)
-init(Project) ->
-    log:debug("Loading project ~p", [Project]),
+init(Path) ->
+    log:debug("Loading project ~p", [Path]),
     % TODO load from disk and populate an ets table
-    Ctx = load(Project),
-    log:debug("Loading project ~p completed", [Project]),
+    Ctx = load(Path),
+    log:debug("Loading project ~p completed", [Path]),
     {ok, Ctx}.
 
 handle_call({get, issue, empty}, _From, Ctx) ->
@@ -244,6 +249,8 @@ handle_call({update, Issue}, _From, Ctx) ->
     add_message(Id, Issue, Timestamp, Ctx),
 
     {reply, {ok, Id}, Ctx};
+
+handle_call(get_path, _From, Ctx) -> {reply, Ctx#project.path, Ctx};
 
 % Search : proplist
 %   key 'columns' : list of columns needed in the return value
@@ -334,12 +341,12 @@ handle_cast(stop, Ctx) -> {stop, normal, Ctx};
 handle_cast(_X, Y) -> {noreply, Y}.
 
 %% File access functions
-load(Project) ->
-    Structure = load_project_file(Project),
+load(Project_path) ->
+    Structure = load_project_file(Project_path),
     Issue_table = ets:new(issue,[private, {keypos, 2}]),
     Message_table = ets:new(message,[private, {keypos, 2}]),
     History_table = ets:new(history,[private, {keypos, 2}]),
-    Ctx = #project{name=Project,
+    Ctx = #project{path=Project_path,
                    issues=Issue_table,
                    messages=Message_table,
                    history=History_table,
@@ -354,8 +361,8 @@ load_project_file(Project) ->
     Term.
 
 load_issues(Ctx) ->
-    {ok, Files} = file:list_dir(Ctx#project.name),
-    Dirs = [Ctx#project.name ++ "/" ++ File || File <- Files],
+    {ok, Files} = file:list_dir(Ctx#project.path),
+    Dirs = [Ctx#project.path ++ "/" ++ File || File <- Files],
     load_issues_from_dirs(Dirs, Ctx).
 
 load_issues_from_dirs([], _Ctx) -> ok;
@@ -415,7 +422,7 @@ load_from_files(Dir, [_F | Others], Messages, History) ->
 sync(Ctx, I) when element(1, I) == issue -> 
     log:debug("syncing..."),
     Id_str = get_value(Ctx, issue, id, I),
-    Dirname = Ctx#project.name ++ "/" ++ Id_str,
+    Dirname = Ctx#project.path ++ "/" ++ Id_str,
     file:make_dir(Dirname),
     Filename = Dirname ++ "/issue",
     % convert record-like tuple to proplist
@@ -426,7 +433,7 @@ sync(Ctx, M = #message{}) ->
     log:debug("syncing message: ~p", [M]),
     Issue = M#message.issue,
     Id = integer_to_list(M#message.id),
-    Dirname = Ctx#project.name ++ "/" ++ Issue,
+    Dirname = Ctx#project.path ++ "/" ++ Issue,
     Filename = Dirname ++ "/msg." ++ Id,
     sync_file(Filename, M);
 
@@ -434,7 +441,7 @@ sync(Ctx, H = #history{}) ->
     log:debug("syncing history: ~p", [H]),
     Issue = H#history.issue,
     Id = integer_to_list(H#history.id),
-    Dirname = Ctx#project.name ++ "/" ++ Issue,
+    Dirname = Ctx#project.path ++ "/" ++ Issue,
     Filename = Dirname ++ "/his." ++ Id,
     sync_file(Filename, H).
 

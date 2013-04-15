@@ -10,6 +10,6 @@ ERL=`ls $DIR/../erts*/bin/erl 2>/dev/null| tail -1`
 [ -z "$ERL" ] && ERL=erl && PA="-pa ../tke/ebin -pa /home/fred/yaws-1.96/ebin"
 set -x
 #$ERL -run tke -detached $PA -tke $@
-$ERL $PA -run tke start -extra --port 8001 --docroot . -p tke -p maison
+$ERL $PA -run tke start -extra --port 8001 --docroot . -p tke -p maison $@
 
 

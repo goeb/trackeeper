@@ -400,14 +400,16 @@ submit() ->
         ]}.
 
 header(Project) ->
-    case file:read_file(Project ++ "/header.html") of
+    Path = tke_db:get_path(Project),
+    case file:read_file(Path ++ "/header.html") of
         {ok, Header} -> ok;
         {error, Reason} -> Header = "no header: " ++ atom_to_list(Reason)
     end,
     {html, Header}.
 
 footer(Project) ->
-    {ok, Footer} = file:read_file(Project ++ "/footer.html"),
+    Path = tke_db:get_path(Project),
+    {ok, Footer} = file:read_file(Path ++ "/footer.html"),
     {html, Footer}.
 
 login_page() ->
