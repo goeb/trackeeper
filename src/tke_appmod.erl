@@ -152,7 +152,8 @@ serve('POST', Url_tokens, Http_req) ->
 %% Process POST requests
 %% Request for creating new project
 http_post(["new"], Form_data) -> 
-    case proplists:get_value(project_name, Form_data) of
+    log:debug("http_post: new, data=~p", [Form_data]),
+    case proplists:get_value("project_name", Form_data) of
         undefined -> 
             {redirect, "/"};
         Project_name ->

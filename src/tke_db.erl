@@ -127,7 +127,8 @@ create_project(Project) ->
     case filelib:ensure_dir(Path ++ "/x") of
         ok ->
             case populate_new_project(Path) of
-                ok -> tke_sup:start_new_project(Path);
+                ok -> {ok, _Pid} = tke_sup:start_new_project(Path),
+                    ok;
                 Else -> Else
             end;
         {error, Reason} ->
@@ -159,7 +160,7 @@ get_column_properties(Project, Column) ->
 
 
 registered_name(Project) ->
-    list_to_atom("tke_" ++ Project).
+    list_to_atom("tke_" ++ filename:basename(Project)).
     
 
 %% Project = list(char)

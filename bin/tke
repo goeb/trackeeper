@@ -7,9 +7,9 @@ DIR=`dirname $0`
 echo DIR=$DIR
 ERL=`ls $DIR/../erts*/bin/erl 2>/dev/null| tail -1`
 
-[ -z "$ERL" ] && ERL=erl && PA="-pa ebin -pa /home/fred/yaws-1.96/ebin"
+[ -z "$ERL" ] && ERL=erl && PA="-pa ../tke/ebin -pa /home/fred/yaws-1.96/ebin"
 set -x
 #$ERL -run tke -detached $PA -tke $@
-$ERL -noshell -noinput $PA -run tke start -extra --port 8001 --docroot . -p tke -p maison
+$ERL $PA -run tke start -extra --port 8001 --docroot . -p tke -p maison
 
 
