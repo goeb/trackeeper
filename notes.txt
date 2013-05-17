@@ -118,10 +118,6 @@ shell>
         => start server for team collaboration
            with one or several projects
 
-    tke ui myclone ...
-        => start server listening on 127.0.0.1
-           launch a web browser and point to the web interface (localhost)
-
     tke list --url localhost:8000
     etc.
     
