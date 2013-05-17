@@ -17,7 +17,9 @@ init(_Args) ->
             log:debug("Projects to load = ~p", [Projects]),
             Childspecs = make_childspecs_tke_db(Projects, [])
     end,
-    {ok, {{one_for_one, 1, 5}, Childspecs}}.
+    CS_user = {"user", {tke_user, start, []},
+                permanent, 10000, worker, [tke_user]},
+    {ok, {{one_for_one, 1, 5}, [CS_user | Childspecs]}}.
 
 %% Prepare the children specifications for starting
 %% the instances of tke_db for each project.
