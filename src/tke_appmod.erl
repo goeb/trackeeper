@@ -121,11 +121,11 @@ parse_query_string(Query_string) ->
     [{X, Y} || [X, Y] <- Q2]. % make a proplist
 
 
-serve('GET', Url_tokens, Http_req) -> 
+serve('GET', Url_tokens, Session_id, Http_req) -> 
     Q = parse_query_string(Http_req#arg.querydata),
     http_get(Url_tokens, Q);
 
-serve('POST', Url_tokens, Http_req) ->
+serve('POST', Url_tokens, Session_id, Http_req) ->
     log:debug("Http_req=~p", [Http_req]),
     log:debug("content_type=~p", [Http_req#arg.headers#headers.content_type]),
 
@@ -191,14 +191,14 @@ http_post(["login"], Login) ->
     case Result of
         {error, Reason} ->
             Cookie_item = [];
-        ok ->
+        {ok, Session_id} ->
             % start session
-            Cookie = yaws_api:new_cookie_session({user, Username}),
-            log:debug("new_cookie_session: Cookie=~p", [Cookie]),
-            Cookie_item = yaws_api:setcookie("sid", Cookie, "/")
+            %Cookie = yaws_api:new_cookie_session({user, Username}),
+            %log:debug("new_cookie_session: Cookie=~p", [Cookie]),
+            Cookie_item = yaws_api:set_cookie("sid", Session_id, [{max_age, 3600}])
     end,
     % TODO handle login
-    [tke_html:login_page(), Cookie_item];
+    [tke_rendering_html:login_page(), Cookie_item];
 
 http_post(["new"], Post_data) -> 
     Project_name = proplists:get_value(name, Post_data),
@@ -270,25 +270,23 @@ get_static_file(Project, Path, _Query) ->
 
 
 out(A) ->
-    check_session(A),
-    %log:debug("out(~p)", [A]),
+    Session_id = get_session_id(A),
     Method = A#arg.req#http_request.method,
     % TODO parse cookie / get session
     Url_tokens = string:tokens(A#arg.appmoddata, "/"),
-    serve(Method, Url_tokens, A).
+    serve(Method, Url_tokens, Session_id, A).
 
     %% old code for managing session
 
-check_session(A) ->
+get_session_id(A) ->
     H = A#arg.headers,
     Cookie = H#headers.cookie,
     case yaws_api:find_cookie_val("sid", Cookie) of
-        [] -> log:debug("no cookie found");
-        C ->
-            X = yaws_api:cookieval_to_opaque(C),
-            log:debug("sid=~p", [C]),
-            log:debug("Xcookie=~p", [X])
-    end.
+        [] -> Session_id = undefined;
+        Session_id -> ok
+    end,
+    log:debug("get_session_id() -> ~p", [Session_id]),
+    Session_id.
 
 %% "aa+bb-cc" -> [{'+', aa}, {'+', bb}, {'-', cc}]
 parse_criteria(undefined) -> [];

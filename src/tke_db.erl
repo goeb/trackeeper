@@ -342,7 +342,7 @@ handle_cast(_X, Y) -> {noreply, Y}.
 
 %% File access functions
 load(Project_path) ->
-    Structure = load_project_file(Project_path),
+    Structure = load_db_file(Project_path),
     Issue_table = ets:new(issue,[private, {keypos, 2}]),
     Message_table = ets:new(message,[private, {keypos, 2}]),
     History_table = ets:new(history,[private, {keypos, 2}]),
@@ -351,22 +351,35 @@ load(Project_path) ->
                    messages=Message_table,
                    history=History_table,
                    structure=Structure},
-    load_issues(Ctx),
+    load_issues(Ctx, all),
     Ctx.
 
-load_project_file(Project) ->
+%% use 'issues_only' when reading locally (via command line)
+load(Project_path, issues_only) ->
+    Structure = load_db_file(Project_path),
+    Issue_table = ets:new(issue,[private, {keypos, 2}]),
+    Ctx = #project{path=Project_path,
+                   issues=Issue_table,
+                   structure=Structure},
+    load_issues(Ctx, issues_only),
+    Ctx.
+
+
+%% Load database description (file named "project")
+load_db_file(Project) ->
     File = Project ++ "/project",
     {ok, [Term]} = file:consult(File),
-    log:debug("load_project_file(~p): done.", [Project]),
+    log:debug("load_db_file(~p): done.", [Project]),
     Term.
 
-load_issues(Ctx) ->
+%% Mode = issues_only | all
+load_issues(Ctx, Mode) ->
     {ok, Files} = file:list_dir(Ctx#project.path),
     Dirs = [Ctx#project.path ++ "/" ++ File || File <- Files],
-    load_issues_from_dirs(Dirs, Ctx).
+    load_issues_from_dirs(Dirs, Ctx, Mode).
 
-load_issues_from_dirs([], _Ctx) -> ok;
-load_issues_from_dirs([Dir | Others], Ctx) ->
+load_issues_from_dirs([], _Ctx, _Mode) -> ok;
+load_issues_from_dirs([Dir | Others], Ctx, Mode) ->
     File = Dir ++ "/issue",
     case file:consult(File) of
         {error, _Reason} -> ok; %log:error("error loading issue ~p", [File]);
@@ -376,8 +389,12 @@ load_issues_from_dirs([Dir | Others], Ctx) ->
             ets:insert(Ctx#project.issues, I);
         _Other -> log:error("unexpected format for issue ~p", [File])
     end,
-    load_messages_and_history(Dir, Ctx#project.messages, Ctx#project.history),
-    load_issues_from_dirs(Others, Ctx).
+    case Mode of
+        all ->
+            load_messages_and_history(Dir, Ctx#project.messages, Ctx#project.history);
+        _Else -> ok % issues_only
+    end,
+    load_issues_from_dirs(Others, Ctx, Mode).
 
 load_messages_and_history(Dir, Messages, History) -> 
     case file:list_dir(Dir) of

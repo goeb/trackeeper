@@ -27,8 +27,8 @@ get_author() -> "John".
 
 %% Get name of user that associated with a cookie
 %% Return: {ok, "UserName"} | {error, not_logged_in}
-get_user(Cookie) -> 
-    gen_server:call(registered_name(), {get_user, Cookie}).    
+get_user(Session_id) -> 
+    gen_server:call(registered_name(), {get_user, Session_id}).
 
 %% Get the list of users of a given project
 %% Return: ["UserName"]
@@ -51,13 +51,15 @@ init(_) ->
     Logged_in = [],
     {ok, {Config, Logged_in}}.
 
-handle_call({get_user, Cookie}, _From, Ctx) ->
-    R = "Mike",
-    % TODO
+handle_call({get_user, Session_id}, _From, Ctx={Config, Logged_users}) ->
+    case proplists:get_value(Session_id, Logged_users) of
+        undefined -> R = "undefined"; % TODO use atom instead
+        Username -> R = Username
+    end,
     {reply, R, Ctx};
 
-handle_call({get_list_of_users, Project}, _From, Ctx) ->
-    R = ["John", "Mike", "Anna", "Alice", "Fred"],
+handle_call({get_list_of_users, Project}, _From, Ctx={Config, Logged_users}) ->
+    R = [ Username || {Username, _} <- Config],
     {reply, R, Ctx};
 
 handle_call({check_user_login, Username, Password}, _From, Ctx={Config, _}) ->
@@ -67,7 +69,16 @@ handle_call({check_user_login, Username, Password}, _From, Ctx={Config, _}) ->
         undefined -> R = {error, unknown_username};
         Userinfo ->
             Expected_sha1 = proplists:get_value(sha1, Userinfo),
-            R = check_sha1(Password, Expected_sha1)
+            R0 = check_sha1(Password, Expected_sha1),
+            case R0 of
+                ok ->
+                    Sid0 = random:uniform(),
+                    Sid1 = term_to_binary(Sid0),
+                    Sid2 = crypto:sha(Sid1),
+                    Sid3 = binary_to_hex_string(Sid2),
+                    R = {ok, Sid3};
+                R -> done % R = R0
+            end
     end,
     {reply, R, Ctx}.
 
@@ -94,9 +105,11 @@ terminate(shutdown, _State) -> ok.
 %% Password = string()
 check_sha1(Password, Expected_sha1_hex) ->
     Provided_sha1 = crypto:sha(Password),
-    Provided_sha1_hex = [ hd(erlang:integer_to_list(Nibble, 16)) || << Nibble:4 >> <= Provided_sha1 ],
+    Provided_sha1_hex = binary_to_hex_string(Provided_sha1),
     case Provided_sha1_hex of 
         Expected_sha1_hex -> ok;
         _Else -> {error, invalid_password}
     end.
 
+binary_to_hex_string(Bin) ->
+    [ hd(erlang:integer_to_list(Nib, 16)) || << Nib:4 >> <= Bin ].
