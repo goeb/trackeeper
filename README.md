@@ -51,4 +51,20 @@ future ?
 
 
 
+REST API
+
+METHOD + scheme://server/resource/action + parameters
+scheme: http or https
+resource:
+    /
+    /project
+    /project/issue
+    /project/issue/N
+
+action:
+    /login
+    /new
+    /list
+
+
 

@@ -151,6 +151,23 @@ serve('POST', Url_tokens, Session_id, Http_req) ->
 
 %% Process POST requests
 %% Request for creating new project
+% Login is a proplist 
+http_post(["login"], Login, _Old_sid) -> 
+    log:debug("Login data: ~p", [Login]),
+    Username = proplists:get_value("name", Login),
+    Password = proplists:get_value("password", Login),
+    Result = tke_user:user_login(Username, Password),
+    log:debug("user_login: ~p", [Result]),
+    case Result of
+        {error, Reason} ->
+            Cookie_item = [];
+        {ok, Sid} -> % start session (Sid = session id)
+            Cookie_item = yaws_api:set_cookie("sid", Sid, [{max_age, 3600}])
+    end,
+    % TODO handle login
+    [tke_rendering_html:login_page(), Cookie_item];
+
+http_post(_Resource, _Data, no_session_id) -> {redirect, "/login"};
 http_post(["new"], Form_data, Sid) -> 
     log:debug("http_post: new, data=~p", [Form_data]),
     case proplists:get_value("project_name", Form_data) of
@@ -181,38 +198,9 @@ http_post([Project, "issue", N], Issue, Sid) ->
             log:debug("redirect to: " ++ Redirect_url),
             {redirect, Redirect_url};
         N -> show_issue(Project, N, "")
-    end;
-
-
-% Login is a proplist 
-http_post(["login"], Login, Sid) -> 
-    log:debug("Login data: ~p", [Login]),
-    Username = proplists:get_value("name",Login),
-    Password = proplists:get_value("password",Login),
-    Result = tke_user:user_login(Username, Password),
-    log:debug("user_login: ~p", [Result]),
-    case Result of
-        {error, Reason} ->
-            Cookie_item = [];
-        {ok, Session_id} ->
-            % start session
-            %Cookie = yaws_api:new_cookie_session({user, Username}),
-            %log:debug("new_cookie_session: Cookie=~p", [Cookie]),
-            Cookie_item = yaws_api:set_cookie("sid", Session_id, [{max_age, 3600}])
-    end,
-    % TODO handle login
-    [tke_rendering_html:login_page(), Cookie_item];
-
-http_post(["new"], Post_data, Sid) -> 
-    Project_name = proplists:get_value(name, Post_data),
-    case tke_db:create_project(Project_name) of
-        ok ->
-            Redirect_url = "/" ++ Project_name ++ "/issue/",
-            log:debug("redirect to: " ++ Redirect_url),
-            {redirect, Redirect_url};
-        _Else ->
-            [{html, "500 - Internal Server Error"}, {status, 500}]
     end.
+
+
 
 
 % convert multipart list to a proplist
@@ -250,10 +238,9 @@ consolidate_multipart([{head,{Name,_Headers}}, {body, Value} | Others], Acc) ->
 % Project = name of project = list(char)
 % Resource = "issue" | TODO
 % Query = proplists of items of the HTTP query string
-http_get([], Sid, _Query) ->
-    %get_role(Sid), TODO
-    tke_rendering_html:project_config();
-http_get(["login"], Sid, _Query) -> tke_rendering_html:login_page();
+http_get(["login"], _Sid, _Query) -> tke_rendering_html:login_page();
+http_get(_Resource, no_session_id, _Query) -> {redirect, "/login"};
+http_get([], Sid, _Query) -> tke_rendering_html:project_config();
 http_get([Project], Sid, _Query) -> no_resource(Project);
 http_get([Project, "static" | Rest], Sid, Query) -> get_static_file(Project, Rest, Query);
 http_get([Project, "issue"], Sid, Query) -> list_issues(Project, Query);
@@ -276,12 +263,14 @@ get_static_file(Project, Path, _Query) ->
 
 out(A) ->
     Session_id = get_session_id(A),
+    case tke_user:get_user(Session_id) of
+        undefined -> Sid = no_session_id;
+        _Else -> % valid logged in user
+            Sid = Session_id
+    end,
     Method = A#arg.req#http_request.method,
-    % TODO parse cookie / get session
     Url_tokens = string:tokens(A#arg.appmoddata, "/"),
-    serve(Method, Url_tokens, Session_id, A).
-
-    %% old code for managing session
+    serve(Method, Url_tokens, Sid, A).
 
 get_session_id(A) ->
     H = A#arg.headers,
