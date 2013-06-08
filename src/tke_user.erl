@@ -12,8 +12,7 @@
 -export([code_change/3, handle_info/2, terminate/2]).
 
 -export([get_user/1, get_list_of_users/1]).
--export([check_user_login/2]).
--export([get_author/0]). % TODO remove this obsolete one
+-export([user_login/2]).
 
 %% API -------------------
 
@@ -23,10 +22,8 @@ start() ->
 
 stop() -> gen_server:cast(registered_name(), stop).
 
-get_author() -> "John".
-
 %% Get name of user that associated with a cookie
-%% Return: {ok, "UserName"} | {error, not_logged_in}
+%% Return: list(char) | undefined
 get_user(Session_id) -> 
     gen_server:call(registered_name(), {get_user, Session_id}).
 
@@ -35,10 +32,10 @@ get_user(Session_id) ->
 get_list_of_users(Project) ->
     gen_server:call(registered_name(), {get_list_of_users, Project}).    
 
-%% Check if user is allowed to log in.
+%% Check if user is allowed to log in, and if so, then log him/her in.
 %% Returns: {ok, randomId} or error
-check_user_login(Username, Password) ->
-    gen_server:call(registered_name(), {check_user_login, Username, Password}).
+user_login(Username, Password) ->
+    gen_server:call(registered_name(), {user_login, Username, Password}).
 
 
 %% Internals -------------------
@@ -52,21 +49,20 @@ init(_) ->
     {ok, {Config, Logged_in}}.
 
 handle_call({get_user, Session_id}, _From, Ctx={Config, Logged_users}) ->
-    case proplists:get_value(Session_id, Logged_users) of
-        undefined -> R = "undefined"; % TODO use atom instead
-        Username -> R = Username
-    end,
+    R = proplists:get_value(Session_id, Logged_users),
     {reply, R, Ctx};
 
 handle_call({get_list_of_users, Project}, _From, Ctx={Config, Logged_users}) ->
     R = [ Username || {Username, _} <- Config],
     {reply, R, Ctx};
 
-handle_call({check_user_login, Username, Password}, _From, Ctx={Config, _}) ->
-    Userinfo = proplists:get_value(Username, Config),
+handle_call({user_login, Username, Password}, _From, Ctx={Cfg, Logged_users}) ->
+    Userinfo = proplists:get_value(Username, Cfg),
     log:debug("Userinfo=~p", [Userinfo]),
     case Userinfo of
-        undefined -> R = {error, unknown_username};
+        undefined ->
+            R = {error, unknown_username},
+            Newctx = Ctx;
         Userinfo ->
             Expected_sha1 = proplists:get_value(sha1, Userinfo),
             R0 = check_sha1(Password, Expected_sha1),
@@ -76,11 +72,15 @@ handle_call({check_user_login, Username, Password}, _From, Ctx={Config, _}) ->
                     Sid1 = term_to_binary(Sid0),
                     Sid2 = crypto:sha(Sid1),
                     Sid3 = binary_to_hex_string(Sid2),
+                    Logged_tmp = proplists:delete(Sid3, Logged_users),
+                    Logged_new = [{Sid3, Username} | Logged_tmp],
+                    Newctx = {Cfg, Logged_new},
                     R = {ok, Sid3};
-                R -> done % R = R0
+                R ->
+                    Newctx = Ctx
             end
     end,
-    {reply, R, Ctx}.
+    {reply, R, Newctx}.
 
 handle_cast(stop, Ctx) -> {stop, normal, Ctx};
 handle_cast(_X, Y) -> {noreply, Y}.

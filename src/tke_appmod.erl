@@ -123,7 +123,7 @@ parse_query_string(Query_string) ->
 
 serve('GET', Url_tokens, Session_id, Http_req) -> 
     Q = parse_query_string(Http_req#arg.querydata),
-    http_get(Url_tokens, Q);
+    http_get(Url_tokens, Session_id, Q);
 
 serve('POST', Url_tokens, Session_id, Http_req) ->
     log:debug("Http_req=~p", [Http_req]),
@@ -132,14 +132,14 @@ serve('POST', Url_tokens, Session_id, Http_req) ->
     case string:str(Http_req#arg.headers#headers.content_type, "multipart/form-data") of
         0 -> % not found. This is not a "multipart/form-data"
             Data = yaws_api:parse_post(Http_req),
-            http_post(Url_tokens, Data);
+            http_post(Url_tokens, Data, Session_id);
         _Else ->
             case yaws_api:parse_multipart_post(Http_req) of
                 {result, Data} -> 
                         % consolidate Multipart_data
                         Data_proplist = consolidate_multipart(Data, []),
                         log:debug("Data_proplist=~p", [Data_proplist]),
-                        http_post(Url_tokens, Data_proplist);
+                        http_post(Url_tokens, Data_proplist, Session_id);
                 {cont, Cont, _Res} ->
                     % TODO accumulate data
                     {get_more, Cont, todo}
@@ -151,7 +151,7 @@ serve('POST', Url_tokens, Session_id, Http_req) ->
 
 %% Process POST requests
 %% Request for creating new project
-http_post(["new"], Form_data) -> 
+http_post(["new"], Form_data, Sid) -> 
     log:debug("http_post: new, data=~p", [Form_data]),
     case proplists:get_value("project_name", Form_data) of
         undefined -> 
@@ -160,17 +160,20 @@ http_post(["new"], Form_data) ->
             ok = tke_db:create_project(Project_name),
             {redirect, "/" ++ Project_name}
     end;
-http_post([Project, "issue", N], Issue) -> 
+http_post([Project, "issue", N], Issue, Sid) -> 
     %% 'id' key normally not needed as it is given by N
     I2 = proplists:delete(id, Issue),
+    Username = tke_user:get_user(Sid),
     case N of
         "new" -> % set id = undefined
-            I3 = [{id, undefined} | I2];
+            I3 = [{id, undefined}, {username, Username} | I2];
         N -> 
             Id = N,
             I3 = [{id, Id} | I2]
     end,
-    {ok, Id4} = tke_db:update(Project, issue, I3),
+
+    I4 = [{username, Username} | I3],
+    {ok, Id4} = tke_db:update(Project, issue, I4),
     log:debug("Id4=~p", [Id4]),
     case N of
         "new" ->
@@ -182,12 +185,12 @@ http_post([Project, "issue", N], Issue) ->
 
 
 % Login is a proplist 
-http_post(["login"], Login) -> 
+http_post(["login"], Login, Sid) -> 
     log:debug("Login data: ~p", [Login]),
     Username = proplists:get_value("name",Login),
     Password = proplists:get_value("password",Login),
-    Result = tke_user:check_user_login(Username, Password),
-    log:debug("check_user_login: ~p", [Result]),
+    Result = tke_user:user_login(Username, Password),
+    log:debug("user_login: ~p", [Result]),
     case Result of
         {error, Reason} ->
             Cookie_item = [];
@@ -200,7 +203,7 @@ http_post(["login"], Login) ->
     % TODO handle login
     [tke_rendering_html:login_page(), Cookie_item];
 
-http_post(["new"], Post_data) -> 
+http_post(["new"], Post_data, Sid) -> 
     Project_name = proplists:get_value(name, Post_data),
     case tke_db:create_project(Project_name) of
         ok ->
@@ -247,15 +250,17 @@ consolidate_multipart([{head,{Name,_Headers}}, {body, Value} | Others], Acc) ->
 % Project = name of project = list(char)
 % Resource = "issue" | TODO
 % Query = proplists of items of the HTTP query string
-http_get([], _Query) -> tke_rendering_html:project_config();
-http_get(["login"], _Query) -> tke_rendering_html:login_page();
-http_get([Project], _Query) -> no_resource(Project);
-http_get([Project, "static" | Rest], Query) -> get_static_file(Project, Rest, Query);
-http_get([Project, "issue"], Query) -> list_issues(Project, Query);
-http_get([Project, "issue", "list"], Query) -> list_issues(Project, Query);
-http_get([Project, "issue", "new"], Query) -> new_issue(Project, Query);
-http_get([Project, "issue", N], Query) -> show_issue(Project, N, Query);
-http_get(A, B) -> log:info("Invalid GET request ~p ? ~p", [A, B]),
+http_get([], Sid, _Query) ->
+    %get_role(Sid), TODO
+    tke_rendering_html:project_config();
+http_get(["login"], Sid, _Query) -> tke_rendering_html:login_page();
+http_get([Project], Sid, _Query) -> no_resource(Project);
+http_get([Project, "static" | Rest], Sid, Query) -> get_static_file(Project, Rest, Query);
+http_get([Project, "issue"], Sid, Query) -> list_issues(Project, Query);
+http_get([Project, "issue", "list"], Sid, Query) -> list_issues(Project, Query);
+http_get([Project, "issue", "new"], Sid, Query) -> new_issue(Project, Query);
+http_get([Project, "issue", N], Sid, Query) -> show_issue(Project, N, Query);
+http_get(A, Sid, B) -> log:info("Invalid GET request ~p ? ~p", [A, B]),
     tke_rendering_html:resource_not_found().
 
 get_static_file(Project, Path, _Query) ->

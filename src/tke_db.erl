@@ -193,11 +193,16 @@ handle_call({get, message, N}, _From, Ctx) ->
         [] -> M = undefined
     end,
     {reply, M, Ctx};
-%% create new issue
-%% Issue contains the message
+
+%% Update: create new issue / update issue / add a message
+%% Issue is a proplists with the following keys:
+%%     id       = 'undefined' in case of a new issue
+%%     username = the person that has posted the issue
 handle_call({update, Issue}, _From, Ctx) ->
     log:debug("update: Issue=~p", [Issue]),
     Id0 = proplists:get_value(id, Issue),
+    Username = proplists:get_value(username, Issue),
+    log:debug("update; Username=~p", [Username]),
     % TODO the diff of the issue wrt. to previous value
     Timestamp = get_timestamp(),
     case Id0 of 
@@ -207,9 +212,8 @@ handle_call({update, Issue}, _From, Ctx) ->
             % ctime
             Ctime = Timestamp,
             % author
-            Author = tke_user:get_author(),
             Issue2 = proplists:delete(id, Issue), % replace id
-            Issue21 = [{id, Id}, {ctime, Ctime}, {author, Author},
+            Issue21 = [{id, Id}, {ctime, Ctime}, {author, Username},
                       {mtime, Timestamp} | Issue2];
         Id0 ->
             Id = Id0,
@@ -243,7 +247,7 @@ handle_call({update, Issue}, _From, Ctx) ->
             log:debug("going to sync..."),
             sync(Ctx, I),
             % add history log
-            add_history(Id, Diff, Timestamp, Ctx)
+            add_history(Id, Diff, Timestamp, Ctx, Username)
     end,
     % now add the message
     add_message(Id, Issue, Timestamp, Ctx),
@@ -581,11 +585,12 @@ get_timestamp() ->
 %% Ctx : context of the server    
 add_message(Issue_id, Message, Timestamp, Ctx) ->
     Text = proplists:get_value(message, Message),
+    Author = proplists:get_value(username, Message),
     Text_stripped = string:strip(Text),
     Id = get_new_id(Ctx#project.messages),
     M = #message{id=Id,
                  issue=Issue_id,
-                 author="John Doe",
+                 author=Author,
                  ctime=Timestamp,
                  text=Text_stripped},
 
@@ -598,12 +603,12 @@ add_message(Issue_id, Message, Timestamp, Ctx) ->
     end,
     ok.
 
-add_history(_Issue_id, [], _Timestamp, _Ctx) -> ok; % no diff, then do nothing
-add_history(Issue_id, Diff, Timestamp, Ctx) ->
+add_history(_Issue_id, [], _Timestamp, _Ctx, _U) -> ok; % no diff, then do nothing
+add_history(Issue_id, Diff, Timestamp, Ctx, Author) ->
     Id = get_new_id(Ctx#project.history),
     H = #history{id=Id,
                  issue=Issue_id,
-                 author="John Doe", % TODO
+                 author=Author,
                  ctime=Timestamp,
                  action=Diff},
     ets:insert(Ctx#project.history, H),
