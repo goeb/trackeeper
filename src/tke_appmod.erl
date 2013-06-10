@@ -3,7 +3,10 @@
 -include("../../../yaws/include/yaws_api.hrl").
 -include_lib("eunit/include/eunit.hrl").
 -include("tke_db.hrl").
+-include("tke_appmod.hrl").
 -compile(export_all).
+
+
 
 %% init server (called by yaws if runmod is specified)
 start() ->
@@ -16,7 +19,8 @@ start() ->
 % action when no ressource is given
 no_resource(_Project_name) -> tke_rendering_html:resource_not_found().
 
-list_issues(Project_name, Query_params) ->
+list_issues(Webctx, Query_params) ->
+    Project_name = Webctx#webctx.project,
     log:info("list_issues(~p, issues, list, query=~p)\n", [Project_name, Query_params]),
     Colspec = get_colspec(Query_params),
     Sorting = get_sorting(Query_params),
@@ -28,7 +32,7 @@ list_issues(Project_name, Query_params) ->
          {keep, Keep}, {exclude, Exclude}
         ]),
     log:debug("apply Module=~p", [Module]),
-    apply(Module, list_issues, [Project_name, Columns, Issues]).
+    apply(Module, list_issues, [Webctx, Columns, Issues]).
 
 get_colspec(Query_params) ->
     Colspec = proplists:get_value("colspec", Query_params),
@@ -88,7 +92,8 @@ get_search_text(Query_params) ->
 
 % show page for issue N
 % Issue_id = list(char)
-show_issue(Project, Issue_id, Query) ->
+show_issue(Webctx, Issue_id, Query) ->
+    Project = Webctx#webctx.project,
     log:debug("show_issue(~p, ~p, ~p)", [Project, Issue_id, Query]),
     Module = get_format(Query),
     I = tke_db:get(Project, issue, Issue_id),
@@ -98,14 +103,15 @@ show_issue(Project, Issue_id, Query) ->
             Id = proplists:get_value(id, I),
             M = tke_db:search(Project, message, Id),
             H = tke_db:search(Project, history, Id),
-            Html = apply(Module, show_issue, [Project, I, M, H])
+            Html = apply(Module, show_issue, [Webctx, I, M, H])
     end,
     %log:debug("Html=~p", [Html]),
     Html.
 
-new_issue(Project, _Query) ->
+new_issue(Webctx, _Query) ->
     % TODO handle format (erlanf, html, etc.)
-    tke_rendering_html:show_issue(Project, tke_db:get(Project, issue, empty), [], []).
+    Project = Webctx#webctx.project,
+    tke_rendering_html:show_issue(Webctx, tke_db:get(Project, issue, empty), [], []).
 
 
 % make a proplist from the query string
@@ -178,6 +184,7 @@ http_post(["new"], Form_data, Sid) ->
             {redirect, "/" ++ Project_name}
     end;
 http_post([Project, "issue", N], Issue, Sid) -> 
+    Webctx = #webctx{project=Project, sid=Sid},
     %% 'id' key normally not needed as it is given by N
     I2 = proplists:delete(id, Issue),
     Username = tke_user:get_user(Sid),
@@ -197,7 +204,7 @@ http_post([Project, "issue", N], Issue, Sid) ->
             Redirect_url = "/" ++ Project ++ "/issue/" ++ Id4,
             log:debug("redirect to: " ++ Redirect_url),
             {redirect, Redirect_url};
-        N -> show_issue(Project, N, "")
+        N -> show_issue(Webctx, N, "")
     end.
 
 
@@ -243,10 +250,16 @@ http_get(_Resource, no_session_id, _Query) -> {redirect, "/login"};
 http_get([], Sid, _Query) -> tke_rendering_html:project_config();
 http_get([Project], Sid, _Query) -> no_resource(Project);
 http_get([Project, "static" | Rest], Sid, Query) -> get_static_file(Project, Rest, Query);
-http_get([Project, "issue"], Sid, Query) -> list_issues(Project, Query);
-http_get([Project, "issue", "list"], Sid, Query) -> list_issues(Project, Query);
-http_get([Project, "issue", "new"], Sid, Query) -> new_issue(Project, Query);
-http_get([Project, "issue", N], Sid, Query) -> show_issue(Project, N, Query);
+http_get([Project, "issue"], Sid, Query) ->
+    Webctx = #webctx{project=Project, sid=Sid},
+    list_issues(Webctx, Query);
+http_get([P, "issue", "list"], Sid, Q) -> http_get([P, "issue"], Sid, Q);
+http_get([Project, "issue", "new"], Sid, Query) ->
+    Webctx = #webctx{project=Project, sid=Sid},
+    new_issue(Webctx, Query);
+http_get([Project, "issue", N], Sid, Query) ->
+    Webctx = #webctx{project=Project, sid=Sid},
+    show_issue(Webctx, N, Query);
 http_get(A, Sid, B) -> log:info("Invalid GET request ~p ? ~p", [A, B]),
     tke_rendering_html:resource_not_found().
 

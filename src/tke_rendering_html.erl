@@ -11,6 +11,9 @@
 
 -module(tke_rendering_html).
 
+-include("tke_appmod.hrl").
+
+
 -export([resource_not_found/0, list_issues/3]).
 -export([show_issue/4]).
 -export([login_page/0, project_config/0]).
@@ -234,23 +237,23 @@ edition_textarea(_P, Name, Value) ->
     {textarea, [{name, Name}], to_string(Value)}.
 
 % return EHTML for displaying a list of issues
-list_issues(Project, Columns, Issues) ->
-    [   header(Project),
+list_issues(Webctx, Columns, Issues) ->
+    [   header(Webctx),
         format_table_of_issues(Columns, Issues),
-        footer(Project)
+        footer(Webctx)
     ].
 
 % return EHTML for diaplying issue
-show_issue(Project, Issue, Messages, History) ->
+show_issue(Webctx, Issue, Messages, History) ->
     log:debug("show_issue..."),
-    [   header(Project),
+    [   header(Webctx),
         title_issue(Issue),
         summary(Issue),
         %created_by(Issue),
         messages(Messages, []),
-        edition_form(Project, Issue),
+        edition_form(Webctx#webctx.project, Issue),
         history(History, []),
-        footer(Project)
+        footer(Webctx)
     ].
 
 title_issue(Issue) ->
@@ -399,16 +402,18 @@ submit() ->
               {td, [], {input, [{type, "submit"}, {value, "Submit"}], ""}}
         ]}.
 
-header(Project) ->
-    Path = tke_db:get_path(Project),
+header(Webctx) ->
+    Path = tke_db:get_path(Webctx#webctx.project),
     case file:read_file(Path ++ "/header.html") of
         {ok, Header} -> ok;
         {error, Reason} -> Header = "no header: " ++ atom_to_list(Reason)
     end,
-    {html, Header}.
+    Username = tke_user:get_user(Webctx#webctx.sid),
+    Custom_html_info = "<script>document.getElementById(\"loginfo\").innerHTML = \"" ++ Username ++ "\";</script>",
+    [{html, Header}, {html, Custom_html_info}].
 
-footer(Project) ->
-    Path = tke_db:get_path(Project),
+footer(Webctx) ->
+    Path = tke_db:get_path(Webctx#webctx.project),
     {ok, Footer} = file:read_file(Path ++ "/footer.html"),
     {html, Footer}.
 
