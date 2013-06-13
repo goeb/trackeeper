@@ -16,7 +16,7 @@
 
 -export([resource_not_found/0, list_issues/3]).
 -export([show_issue/4]).
--export([login_page/0, project_config/0]).
+-export([login_page/1, project_config/0]).
 
 % Return the ehtml structure for the table of issues
 % The rowid must be present
@@ -409,7 +409,7 @@ header(Webctx) ->
         {error, Reason} -> Header = "no header: " ++ atom_to_list(Reason)
     end,
     Username = tke_user:get_user(Webctx#webctx.sid),
-    Custom_html_info = "<script>document.getElementById(\"loginfo\").innerHTML = \"" ++ Username ++ "\";</script>",
+    Custom_html_info = javascript_innerHtml_update("loginfo", Username),
     [{html, Header}, {html, Custom_html_info}].
 
 footer(Webctx) ->
@@ -417,9 +417,24 @@ footer(Webctx) ->
     {ok, Footer} = file:read_file(Path ++ "/footer.html"),
     {html, Footer}.
 
-login_page() ->
+javascript_innerHtml_update(Field_id, Value) ->
+    "<script>document.getElementById(\"" ++ Field_id ++ 
+        "\").innerHTML = \"" ++ Value ++ "\";</script>".
+
+javascript_attribute_update(Field_id, Attribute_name, Value) ->
+    "<script>document.getElementById(\"" ++ Field_id ++ 
+        "\")." ++ Attribute_name ++ " = \"" ++ Value ++ "\";</script>".
+
+
+login_page(Webctx) ->
     {ok, Html} = file:read_file("tke_users/login.html"),
-    {html, Html}.
+    Upath = proplists:get_value("upath", Webctx#webctx.params),
+    case Upath of
+        undefined -> Jscript = "";
+        _Else ->
+            Jscript = javascript_attribute_update("upath", "value", Upath)
+    end,
+    {html, [Html, Jscript]}.
 
 %% Page that shows existing projects
 project_config() ->

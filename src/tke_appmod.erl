@@ -19,8 +19,9 @@ start() ->
 % action when no ressource is given
 no_resource(_Project_name) -> tke_rendering_html:resource_not_found().
 
-list_issues(Webctx, Query_params) ->
+list_issues(Webctx) ->
     Project_name = Webctx#webctx.project,
+    Query_params = Webctx#webctx.params,
     log:info("list_issues(~p, issues, list, query=~p)\n", [Project_name, Query_params]),
     Colspec = get_colspec(Query_params),
     Sorting = get_sorting(Query_params),
@@ -92,8 +93,9 @@ get_search_text(Query_params) ->
 
 % show page for issue N
 % Issue_id = list(char)
-show_issue(Webctx, Issue_id, Query) ->
+show_issue(Webctx, Issue_id) ->
     Project = Webctx#webctx.project,
+    Query = Webctx#webctx.params,
     log:debug("show_issue(~p, ~p, ~p)", [Project, Issue_id, Query]),
     Module = get_format(Query),
     I = tke_db:get(Project, issue, Issue_id),
@@ -108,7 +110,7 @@ show_issue(Webctx, Issue_id, Query) ->
     %log:debug("Html=~p", [Html]),
     Html.
 
-new_issue(Webctx, _Query) ->
+new_issue(Webctx) ->
     % TODO handle format (erlanf, html, etc.)
     Project = Webctx#webctx.project,
     tke_rendering_html:show_issue(Webctx, tke_db:get(Project, issue, empty), [], []).
@@ -129,10 +131,15 @@ parse_query_string(Query_string) ->
 
 serve('GET', Url_tokens, Session_id, Http_req) -> 
     Q = parse_query_string(Http_req#arg.querydata),
-    http_get(Url_tokens, Session_id, Q);
+    Query_string = Http_req#arg.querydata,
+    case Query_string of
+        undefined -> Url = Http_req#arg.server_path;
+        _Else -> Url = Http_req#arg.server_path ++ "?" ++ Query_string
+    end,
+    Webctx = #webctx{project=undefined, upath=Url, params=Q, sid=Session_id},
+    http_get(Url_tokens, Webctx);
 
 serve('POST', Url_tokens, Session_id, Http_req) ->
-    log:debug("Http_req=~p", [Http_req]),
     log:debug("content_type=~p", [Http_req#arg.headers#headers.content_type]),
 
     case string:str(Http_req#arg.headers#headers.content_type, "multipart/form-data") of
@@ -158,10 +165,11 @@ serve('POST', Url_tokens, Session_id, Http_req) ->
 %% Process POST requests
 %% Request for creating new project
 % Login is a proplist 
-http_post(["login"], Login, _Old_sid) -> 
-    log:debug("Login data: ~p", [Login]),
-    Username = proplists:get_value("name", Login),
-    Password = proplists:get_value("password", Login),
+http_post(["login"], Params, _Old_sid) -> 
+    log:debug("Login data: ~p", [Params]),
+    Username = proplists:get_value("name", Params),
+    Password = proplists:get_value("password", Params),
+    Upath = proplists:get_value("upath", Params), % used for redirection
     Result = tke_user:user_login(Username, Password),
     log:debug("user_login: ~p", [Result]),
     case Result of
@@ -171,7 +179,12 @@ http_post(["login"], Login, _Old_sid) ->
             Cookie_item = yaws_api:set_cookie("sid", Sid, [{max_age, 3600}])
     end,
     % TODO handle login
-    [tke_rendering_html:login_page(), Cookie_item];
+    case Upath of
+        undefined -> [tke_rendering_html:login_page(#webctx{params=[]}), Cookie_item];
+        _Else ->
+            Redirect = yaws_api:url_decode(Upath),
+            [{redirect, Redirect}, Cookie_item]
+    end;
 
 http_post(_Resource, _Data, no_session_id) -> {redirect, "/login"};
 http_post(["new"], Form_data, Sid) -> 
@@ -204,7 +217,7 @@ http_post([Project, "issue", N], Issue, Sid) ->
             Redirect_url = "/" ++ Project ++ "/issue/" ++ Id4,
             log:debug("redirect to: " ++ Redirect_url),
             {redirect, Redirect_url};
-        N -> show_issue(Webctx, N, "")
+        N -> show_issue(Webctx#webctx{params=""}, N)
     end.
 
 
@@ -245,25 +258,26 @@ consolidate_multipart([{head,{Name,_Headers}}, {body, Value} | Others], Acc) ->
 % Project = name of project = list(char)
 % Resource = "issue" | TODO
 % Query = proplists of items of the HTTP query string
-http_get(["login"], _Sid, _Query) -> tke_rendering_html:login_page();
-http_get(_Resource, no_session_id, _Query) -> {redirect, "/login"};
-http_get([], Sid, _Query) -> tke_rendering_html:project_config();
-http_get([Project], Sid, _Query) -> no_resource(Project);
-http_get([Project, "static" | Rest], Sid, Query) -> get_static_file(Project, Rest, Query);
-http_get([Project, "issue"], Sid, Query) ->
-    Webctx = #webctx{project=Project, sid=Sid},
-    list_issues(Webctx, Query);
-http_get([P, "issue", "list"], Sid, Q) -> http_get([P, "issue"], Sid, Q);
-http_get([Project, "issue", "new"], Sid, Query) ->
-    Webctx = #webctx{project=Project, sid=Sid},
-    new_issue(Webctx, Query);
-http_get([Project, "issue", N], Sid, Query) ->
-    Webctx = #webctx{project=Project, sid=Sid},
-    show_issue(Webctx, N, Query);
-http_get(A, Sid, B) -> log:info("Invalid GET request ~p ? ~p", [A, B]),
+http_get(["login"], Webctx) -> tke_rendering_html:login_page(Webctx);
+http_get(Resource, Webctx) when Webctx#webctx.sid == no_session_id ->
+    Upath = Webctx#webctx.upath,
+    {redirect, "/login?upath=" ++ yaws_api:url_encode(Upath)};
+
+http_get([], Webctx) when Webctx#webctx.project == undefined ->
+    tke_rendering_html:project_config();
+http_get([P | Rest], Webctx) when Webctx#webctx.project == undefined->
+    http_get(Rest, Webctx#webctx{project=P});
+http_get([], Webctx) -> no_resource(Webctx#webctx.project);
+http_get(["static" | Rest], Webctx) ->
+    get_static_file(Webctx#webctx.project, Rest);
+http_get(["issue"], Webctx) -> list_issues(Webctx);
+http_get(["issue", "list"], Webctx) -> http_get(["issue"], Webctx);
+http_get(["issue", "new"], Webctx) -> new_issue(Webctx);
+http_get(["issue", N], Webctx) -> show_issue(Webctx, N);
+http_get(A, B) -> log:info("Invalid GET request ~p ? ~p", [A, B]),
     tke_rendering_html:resource_not_found().
 
-get_static_file(Project, Path, _Query) ->
+get_static_file(Project, Path) ->
     Filepath = Project ++ "/static/" ++ string:join(Path, "/"),
     %log:debug("Project=~p, Path=~p, Filepath=~p", [Project, Path, Filepath]),
     case file:read_file(Filepath) of
@@ -283,6 +297,7 @@ out(A) ->
     end,
     Method = A#arg.req#http_request.method,
     Url_tokens = string:tokens(A#arg.appmoddata, "/"),
+    log:debug("Http_req=~p", [A]),
     serve(Method, Url_tokens, Sid, A).
 
 get_session_id(A) ->
