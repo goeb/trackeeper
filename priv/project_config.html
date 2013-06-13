@@ -3,11 +3,131 @@
     <head>
         <title>
         </title>
+<script>
+    function fupdate(item) {
+        //alert(item.value);
+        if (item.value == "text") show_size_input(item.parentNode);
+        else if (item.value == "list") show_list_input(item.parentNode);
+        else if (item.value == "multilist") show_list_input(item.parentNode);
+        else if (item.value == "user") show_user_input(item.parentNode);
+        else if (item.value == "textarea") show_textarea_input(item.parentNode);
+        //x = this.parentNode.
+    }
+    function show_size_input(item) {
+        x = document.getElementById(item.id + '_opt');
+        if (x) item.removeChild(x);
+        i = document.createElement('input')
+        i.name = item.id + '_opt';
+        i.id = i.name;
+        i.type = 'text';
+        i.size = 4;
+        item.appendChild(i);
+
+        x = document.getElementById(item.id + '_help');
+        if (x) item.removeChild(x);
+        t = document.createElement('span');
+        t.innerHTML = "(Size of the text input)";
+        t.id = item.id + '_help';
+        item.appendChild(t);
+    }
+    function show_list_input(item) {
+        x = document.getElementById(item.id + '_opt');
+        if (x) item.removeChild(x);
+        i = document.createElement('input')
+        i.name = item.id + '_opt';
+        i.id = i.name;
+        i.type = 'text';
+        item.appendChild(i);
+
+        x = document.getElementById(item.id + '_help');
+        if (x) item.removeChild(x);
+        t = document.createElement('span');
+        t.innerHTML = "(comma separated list of values)";
+        t.id = item.id + '_help';
+        item.appendChild(t);
+    }
+    function show_user_input(item) {
+        x = document.getElementById(item.id + '_opt');
+        if (x) item.removeChild(x);
+        x = document.getElementById(item.id + '_help');
+        if (x) item.removeChild(x);
+        t = document.createElement('span');
+        t.innerHTML = "(a list of valid users will be proposed)";
+        t.id = item.id + '_help';
+        item.appendChild(t);
+    }
+    function show_textarea_input(item) {
+        x = document.getElementById(item.id + '_opt');
+        if (x) item.removeChild(x);
+        i = document.createElement('input')
+        i.name = item.id + '_opt';
+        i.id = i.name;
+        i.type = 'text';
+        item.appendChild(i);
+        
+        x = document.getElementById(item.id + '_help');
+        if (x) item.removeChild(x);
+        t = document.createElement('span');
+        t.innerHTML = "(widht, height)";
+        t.id = item.id + '_help';
+        item.appendChild(t);
+    }
+function replaceContentInContainer() {
+    matchClass = "updatable";
+    
+    var elems = document.getElementsByTagName('*'), i;
+    for (i in elems) {
+        if((' ' + elems[i].className + ' ').indexOf(' ' + matchClass + ' ')
+                > -1) {
+            fupdate(elems[i]);
+        }
+    }
+}
+</script>
     </head>
-    <body>
+    <body onload="replaceContentInContainer();">
         Create new project:<br>
         <form method="POST" action="/new">
-            <input type="text" size="30" name="project_name">
+            <input type="text" size="30" name="project_name"> <br>
+
+            <br>
+            Fields:<br>
+            Reserved fields: id, ctime, mtime, author, title<br>
+            <div id="fields">
+                <div id="div1">
+                <input type="text" size="30" name="field1" value="status">
+                <select name="type1" onchange="fupdate(this);" class="updatable">
+                    <option>text</option>
+                    <option selected>list</option>
+                    <option>multilist</option>
+                    <option>user</option>
+                    <option>textarea</option>
+                </select>
+                </div>
+                <div id="div2">
+                <input type="text" size="30" name="field2" value="priority">
+                <select name="type2" onchange="fupdate(this);" class="updatable">
+                    <option>text</option>
+                    <option selected>list</option>
+                    <option>multilist</option>
+                    <option>user</option>
+                    <option>textarea</option>
+                </select>
+                </div>
+                <div id="div3">
+
+                <input type="text" size="30" name="field3" value="owner">
+                <select name="type3" onchange="fupdate(this);" class="updatable">
+                    <option>text</option>
+                    <option>list</option>
+                    <option>multilist</option>
+                    <option selected>user</option>
+                    <option>textarea</option>
+                </select>
+                <span name="options"></span>
+
+                </div>
+            </div>
             <input type="submit" value="Create">
         </form>
     </body>
