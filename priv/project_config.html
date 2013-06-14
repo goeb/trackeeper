@@ -1,9 +1,41 @@
 
 <html>
     <head>
-        <title>
-        </title>
+        <title>Project configuration</title>
+        <link rel="stylesheet" type="text/css" href="/tke/static/style.css">
 <script>
+
+function addField(name, type, options) {
+    fields = document.getElementById('fields');
+    n = fields.childNodes.length;
+    // add field n+1
+    n = n + 1;
+    fieldn = document.createElement('div');
+    fieldn.id = 'field' + n;
+
+    // input boxes for this field
+    i = document.createTextNode('#' + n + ' ');
+    fieldn.appendChild(i);
+
+    i = document.createElement('input');
+    i.name = 'field' + n + '_name';
+    i.size = 30;
+    i.value = name;
+    fieldn.appendChild(i);
+
+    i = document.createElement('select');
+    i.name = 'field' + n + '_type';
+    i.value = type;
+    var options = ['text', 'list', 'multilist', 'user', 'textarea'];
+    for (index=0; index<options.length; index++) {
+        opt = document.createElement('option');
+        opt.innerHTML = options[index];
+        i.appendChild(opt);
+    }
+    fieldn.appendChild(i);
+    fields.appendChild(fieldn);
+
+}
     function fupdate(item) {
         //alert(item.value);
         if (item.value == "text") show_size_input(item.parentNode);
@@ -11,7 +43,6 @@
         else if (item.value == "multilist") show_list_input(item.parentNode);
         else if (item.value == "user") show_user_input(item.parentNode);
         else if (item.value == "textarea") show_textarea_input(item.parentNode);
-        //x = this.parentNode.
     }
     function show_size_input(item) {
         x = document.getElementById(item.id + '_opt');
@@ -33,16 +64,18 @@
     function show_list_input(item) {
         x = document.getElementById(item.id + '_opt');
         if (x) item.removeChild(x);
-        i = document.createElement('input')
+        i = document.createElement('textarea')
         i.name = item.id + '_opt';
         i.id = i.name;
-        i.type = 'text';
+        i.className = 'tke_fieldconfig';
+        i.rows = 4;
+        i.cols = 20;
         item.appendChild(i);
 
         x = document.getElementById(item.id + '_help');
         if (x) item.removeChild(x);
         t = document.createElement('span');
-        t.innerHTML = "(comma separated list of values)";
+        t.innerHTML = "(one value on each line)";
         t.id = item.id + '_help';
         item.appendChild(t);
     }
@@ -72,6 +105,11 @@
         t.id = item.id + '_help';
         item.appendChild(t);
     }
+function init() {
+    addField('statusX', 'list', '');
+    addField('statusY', 'list', '');
+    replaceContentInContainer();
+}
 function replaceContentInContainer() {
     matchClass = "updatable";
     
@@ -85,7 +123,7 @@ function replaceContentInContainer() {
 }
 </script>
     </head>
-    <body onload="replaceContentInContainer();">
+    <body onload="init();">
         Create new project:<br>
         <form method="POST" action="/new">
             <input type="text" size="30" name="project_name"> <br>
@@ -94,8 +132,9 @@ function replaceContentInContainer() {
             Fields:<br>
             Reserved fields: id, ctime, mtime, author, title<br>
             <div id="fields">
-                <div id="div1">
-                <input type="text" size="30" name="field1" value="status">
+
+                <div id="field1" class="tke_fieldconfig_block">
+                #1 <input type="text" size="30" name="field1" value="status">
                 <select name="type1" onchange="fupdate(this);" class="updatable">
                     <option>text</option>
                     <option selected>list</option>
@@ -104,8 +143,8 @@ function replaceContentInContainer() {
                     <option>textarea</option>
                 </select>
                 </div>
-                <div id="div2">
-                <input type="text" size="30" name="field2" value="priority">
+                <div id="field2" class="tke_fieldconfig_block">
+                #2 <input type="text" size="30" name="field2" value="priority">
                 <select name="type2" onchange="fupdate(this);" class="updatable">
                     <option>text</option>
                     <option selected>list</option>
@@ -114,9 +153,9 @@ function replaceContentInContainer() {
                     <option>textarea</option>
                 </select>
                 </div>
-                <div id="div3">
+                <div id="field3" class="tke_fieldconfig_block">
 
-                <input type="text" size="30" name="field3" value="owner">
+                #3 <input type="text" size="30" name="field3" value="owner">
                 <select name="type3" onchange="fupdate(this);" class="updatable">
                     <option>text</option>
                     <option>list</option>

@@ -135,3 +135,12 @@ table.list tr.navigation th:last-child {
 .searchbox {
     float: right;
 }
+
+.tke_fieldconfig {
+    vertical-align: text-top;
+}
+.tke_fieldconfig_block {
+    padding: 1em;
+    /*border: solid 1px;*/
+}
+
