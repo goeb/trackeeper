@@ -144,3 +144,7 @@ table.list tr.navigation th:last-child {
     /*border: solid 1px;*/
 }
 
+.clickable {
+    text-decoration:underline;
+    color: blue;
+}
