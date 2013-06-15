@@ -26,6 +26,8 @@ function addField(name, type, options) {
     i = document.createElement('select');
     i.name = 'field' + n + '_type';
     i.value = type;
+    i.className = "updatable";
+    i.onchange = fupdateThis;
     var options = ['text', 'list', 'multilist', 'user', 'textarea'];
     for (index=0; index<options.length; index++) {
         opt = document.createElement('option');
@@ -36,6 +38,7 @@ function addField(name, type, options) {
     fields.appendChild(fieldn);
 
 }
+function fupdateThis() { fupdate(this); }
     function fupdate(item) {
         //alert(item.value);
         if (item.value == "text") show_size_input(item.parentNode);

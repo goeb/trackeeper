@@ -1,3 +1,23 @@
+
+
+2013-06-15 18:12:52 <0.348.0> DEBUG http_post: new, data=[{"project_name","tututu"},
+                                          {"field1","status"},
+                                          {"type1","list"},
+                                          {"field1_opt","xxxx"},
+                                          {"field2","priority"},
+                                          {"type2","list"},
+                                          {"field2_opt","yyyy"},
+                                          {"field3","owner"},
+                                          {"type3","user"},
+                                          {"field8_name","statusX"},
+                                          {"field8_type","text"},
+                                          {"field8_opt","aaa"},
+                                          {"field9_name","statusY"},
+                                          {"field9_type","text"},
+                                          {"field9_opt","bbb"}]
+
+
+
 start tke application
 ---------------------
 erl -pa ebin -config tke.config
