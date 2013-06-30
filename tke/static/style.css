@@ -145,6 +145,10 @@ table.list tr.navigation th:last-child {
 }
 
 .clickable {
+    cursor: pointer;
+}
+.clickable {
     text-decoration:underline;
     color: blue;
+
 }

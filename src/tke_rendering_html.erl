@@ -57,7 +57,7 @@ to_action_string([{Old, New} | Rest], Str) ->
 
 format_cell(undefined, Column_name, _Column_value) -> atom_to_list(Column_name);
 format_cell(Rowid, title, Column_value) ->
-    {a, [{href, to_string(Rowid)}], to_string(Column_value)};
+    {a, [{href, "issue/" ++ to_string(Rowid)}], to_string(Column_value)};
 format_cell(_Rowid, mtime, Time = {{_Y, _Month, _D}, {_H, _Min, _Second}}) ->
     % compute duration since latest activity
     Now = calendar:universal_time(),
